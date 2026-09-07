@@ -229,7 +229,7 @@
 
 ### OneDrive 云同步构建配置
 
-项目已内置公开的 OneDrive Client ID，因此普通用户无需配置环境变量即可使用同步。首次同步会在 OneDrive 根目录自动创建 `Wuwa Gacha Tool` 文件夹，并按 UID 保存 `.wuwa.json` 文件。`WUWA_ONEDRIVE_CLIENT_ID` 仅用于 CI 或本地构建覆盖默认应用 ID。Client ID 不包含密钥；应用不使用客户端密钥，仅申请 `offline_access` 与 `Files.ReadWrite` 权限。
+项目已内置公开的 OneDrive Client ID，因此普通用户无需配置环境变量即可使用同步。首次同步会在 OneDrive 根目录自动创建 `Wuwa Gacha Tool` 文件夹，并保存共享数据库 `gacha-data.db`。`WUWA_ONEDRIVE_CLIENT_ID` 仅用于 CI 或本地构建覆盖默认应用 ID。Client ID 不包含密钥；应用不使用客户端密钥，仅申请 `offline_access` 与 `Files.ReadWrite` 权限。
 
 其他系统需要先安装对应平台的 Tauri 2 系统依赖。部分游戏目录扫描和云鸣潮流程主要面向 Windows 环境。
 

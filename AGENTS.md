@@ -4,9 +4,10 @@
 
 ## 1. 仓库职责
 
-本项目由三个独立仓库组成，代码、产物和发布流程不得混放：
+本项目由四个独立仓库组成，代码、产物和发布流程不得混放：
 
-- 主程序：当前 `wuwa-gagha-tool` 仓库。负责 React/Tauri 界面、业务逻辑、SQLite 数据、OCR 组件调用和资源包消费。
+- 主程序：当前 `wuwa-gacha-tool` 仓库。负责 React/Tauri 界面、业务逻辑、SQLite 数据、OCR 组件调用和资源包消费。
+- Android 客户端：同级 `wuwa-gacha-tool-android` 仓库。负责原生 Android 界面、Room 数据库、导入、资源缓存和 OneDrive 数据库快照同步。
 - OCR 组件：通常位于同级 `wuwa-gacha-tool-ocr-runtime` 仓库。负责 OCR sidecar、模型、五星头像模板、识别脚本及 `ocr-component.json` 发布产物。主程序只下载、校验和调用已发布组件，不在本仓库构建 OCR runtime。
 - 资源包：通常位于同级 `wuwa-gacha-tool-resources` 仓库。负责角色、武器目录和图片快照，以及 `resource-manifest.json` 和压缩包发布。它与主程序 Release、OCR Release 相互独立。
 

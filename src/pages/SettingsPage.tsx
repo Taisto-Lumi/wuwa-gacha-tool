@@ -1020,7 +1020,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2 text-sm font-medium text-tide"><ResonanceActionIcon tone="gold"><ResonanceIcon kind="sync" size={15} /></ResonanceActionIcon>数据与同步</div>
-                    <p className="mt-1 text-xs leading-5 text-wave">按 UID 管理抽卡记录并与 OneDrive 双向合并，不上传数据库文件；当前版本不会同步删除操作。</p>
+                    <p className="mt-1 text-xs leading-5 text-wave">按 UID 管理抽卡记录，并通过 OneDrive 同步共享的 gacha-data.db 数据库快照。两端同时修改时会停止同步，避免覆盖；数据库删除、清空和模拟记录修改也会随快照同步。</p>
                     <button
                       type="button"
                       onClick={() => void openUrl('https://github.com/juliy819/wuwa-gacha-tool-android/releases')}
