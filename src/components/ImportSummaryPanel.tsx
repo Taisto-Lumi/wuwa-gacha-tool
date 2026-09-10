@@ -8,7 +8,7 @@ import { QUALITY } from '../types';
 import ResourceIcon from './ResourceIcon';
 
 const SOURCE_LABELS = {
-  'game-dir': '游戏目录扫描',
+  'game-dir': 'Client.log 扫描',
   cloud: '云鸣潮同步',
   url: '抽卡链接同步',
   json: 'JSON 导入',

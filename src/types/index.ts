@@ -365,6 +365,7 @@ export interface PoolBoundaryStatus {
 
 export interface GameSettings {
   game_dir: string;
+  log_path: string;
 }
 
 export interface GameDirValidation {

@@ -1244,50 +1244,68 @@ pub fn clear_records(
 #[tauri::command]
 pub fn save_game_dir(state: State<'_, AppState>, game_dir: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.save_settings(&GameSettings { game_dir })
+    db.save_settings(&GameSettings { game_dir: String::new(), log_path: game_dir })
 }
 
 /// 获取游戏目录
 #[tauri::command]
 pub fn get_game_dir(state: State<'_, AppState>) -> Result<GameSettings, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.get_settings()
+    let mut settings = db.get_settings()?;
+    if !settings.log_path.trim().is_empty() {
+        if !std::path::Path::new(settings.log_path.trim()).is_file() {
+            settings.log_path.clear();
+            settings.game_dir.clear();
+            db.save_settings(&settings)?;
+        }
+        return Ok(settings);
+    }
+    if settings.game_dir.trim().is_empty() {
+        return Ok(settings);
+    }
+    let log_path = std::path::Path::new(settings.game_dir.trim()).join("Client/Saved/Logs/Client.log");
+    if log_path.is_file() {
+        let normalized = log_path.to_string_lossy().into_owned();
+        if normalized != settings.game_dir.trim() {
+            settings.log_path = normalized;
+            db.save_settings(&settings)?;
+        }
+    } else {
+        settings.game_dir.clear();
+        db.save_settings(&settings)?;
+    }
+    Ok(settings)
 }
 
-/// 检查游戏目录及 Client.log 是否存在。
+/// 检查 Client.log 文件路径是否可用。
 #[tauri::command]
 pub fn validate_game_dir(game_dir: String) -> GameDirValidation {
     let trimmed = game_dir.trim();
-    let (normalized_game_dir, log_path_buf) = decoder::resolve_log_path(trimmed);
-    let log_path = log_path_buf.to_string_lossy().into_owned();
+    let log_path = trimmed.to_string();
 
     if trimmed.is_empty() {
         return GameDirValidation {
             valid: false,
-            log_path,
-            normalized_game_dir,
-            message: "尚未设置游戏目录".to_string(),
+            log_path: log_path.clone(),
+            normalized_game_dir: trimmed.to_string(),
+            message: "尚未设置 Client.log 文件路径".to_string(),
         };
     }
 
     let path = std::path::Path::new(&log_path);
-    if path.is_file() {
+    if path.file_name().is_some_and(|name| name.eq_ignore_ascii_case("Client.log")) && path.is_file() {
         GameDirValidation {
             valid: true,
-            log_path,
-            normalized_game_dir: normalized_game_dir.clone(),
-            message: if normalized_game_dir != trimmed {
-                "已找到 Client.log，已自动修正为游戏根目录".to_string()
-            } else {
-                "已找到 Client.log".to_string()
-            },
+            log_path: log_path.clone(),
+            normalized_game_dir: log_path.clone(),
+            message: "已找到 Client.log".to_string(),
         }
     } else {
         GameDirValidation {
             valid: false,
             log_path,
-            normalized_game_dir,
-            message: "未找到日志。请选择包含 Client 文件夹的游戏根目录".to_string(),
+            normalized_game_dir: trimmed.to_string(),
+            message: "未找到 Client.log，请选择有效的日志文件".to_string(),
         }
     }
 }

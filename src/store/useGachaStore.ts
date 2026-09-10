@@ -169,8 +169,8 @@ export const useGachaStore = create<GachaStore>((set, get) => ({
   saveGameDir: async (dir: string) => {
     try {
       await gachaApi.saveGameDir(dir);
-      set({ settings: { game_dir: dir } });
-      get().addToast('success', '游戏目录已保存');
+      set({ settings: { game_dir: '', log_path: dir } });
+      get().addToast('success', 'Client.log 路径已保存');
     } catch (e) {
       get().addToast('error', `保存失败: ${String(e)}`);
       throw e;

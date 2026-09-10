@@ -98,56 +98,15 @@ fn is_gacha_record_url(raw_url: &str) -> bool {
             .is_some_and(|fragment| fragment == "/record" || fragment.starts_with("/record?"))
 }
 
-/// 根据用户输入定位 Client.log。支持游戏根目录以及误填的 Client、Saved、Logs 子目录。
+/// 根据配置定位 Client.log。新配置直接保存日志路径；旧版本目录配置仍可兼容。
 pub fn get_log_path(game_dir: &str) -> String {
-    resolve_log_path(game_dir).1.to_string_lossy().into_owned()
+    Path::new(game_dir.trim()).to_string_lossy().into_owned()
 }
 
 fn normalize_logged_url(raw_url: &str) -> String {
     raw_url.replace("\\u0026", "&")
 }
 
-/// 返回自动修正后的游戏根目录和日志路径。
-pub fn resolve_log_path(game_dir: &str) -> (String, std::path::PathBuf) {
-    let input = Path::new(game_dir.trim());
-    let mut candidates = Vec::new();
-    if input
-        .file_name()
-        .is_some_and(|name| name.eq_ignore_ascii_case("Client.log"))
-    {
-        candidates.push((
-            input
-                .parent()
-                .and_then(Path::parent)
-                .and_then(Path::parent)
-                .and_then(Path::parent),
-            input.to_path_buf(),
-        ));
-    }
-    candidates.push((Some(input), input.join("Client/Saved/Logs/Client.log")));
-    candidates.push((input.parent(), input.join("Saved/Logs/Client.log")));
-    candidates.push((
-        input.parent().and_then(Path::parent),
-        input.join("Logs/Client.log"),
-    ));
-    candidates.push((
-        input.parent().and_then(Path::parent).and_then(Path::parent),
-        input.join("Client.log"),
-    ));
-
-    for (root, log_path) in candidates {
-        if log_path.is_file() {
-            let normalized_root = root.unwrap_or(input).to_string_lossy().into_owned();
-            return (normalized_root, log_path);
-        }
-    }
-
-    let normalized = input.to_string_lossy().into_owned();
-    (
-        normalized.clone(),
-        input.join("Client/Saved/Logs/Client.log"),
-    )
-}
 
 #[cfg(test)]
 mod tests {
@@ -207,9 +166,8 @@ more data"#;
             &logs,
             &log_path,
         ] {
-            let (resolved_root, resolved_log) = resolve_log_path(input.to_string_lossy().as_ref());
-            assert_eq!(Path::new(&resolved_root), root);
-            assert_eq!(resolved_log, log_path);
+            let resolved_log = get_log_path(input.to_string_lossy().as_ref());
+            assert_eq!(Path::new(&resolved_log), input);
         }
 
         fs::remove_dir_all(base).unwrap();

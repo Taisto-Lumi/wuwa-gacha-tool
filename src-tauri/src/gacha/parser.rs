@@ -1090,6 +1090,7 @@ fn probability_curve(intervals: &[i32]) -> Vec<ProbabilityPoint> {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GameSettings {
     pub game_dir: String,
+    pub log_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -95,6 +95,75 @@ pub struct CachedJson {
     pub updated_at: i64,
 }
 
+fn table_columns(conn: &Connection, table: &str) -> Result<HashSet<String>, String> {
+    conn.prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|e| e.to_string())?
+        .query_map([], |row| row.get(1))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<HashSet<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+fn legacy_table_migration_sql(table: &str, columns: &HashSet<String>) -> String {
+    match table {
+        "gacha_records" => {
+            let is_off_rate = if columns.contains("is_off_rate") {
+                "is_off_rate"
+            } else {
+                "0"
+            };
+            let occurrence_no = if columns.contains("occurrence_no") {
+                "occurrence_no"
+            } else {
+                "ROW_NUMBER() OVER (PARTITION BY player_id, card_pool_type, time, resource_id, quality_level, resource_type, count ORDER BY id) - 1"
+            };
+            let order_in_timestamp = if columns.contains("order_in_timestamp") {
+                "order_in_timestamp"
+            } else {
+                "ROW_NUMBER() OVER (PARTITION BY player_id, card_pool_type, time ORDER BY id) - 1"
+            };
+            let is_mock = if columns.contains("is_mock") {
+                "is_mock"
+            } else {
+                "0"
+            };
+            let mock_batch_id = if columns.contains("mock_batch_id") {
+                "mock_batch_id"
+            } else {
+                "NULL"
+            };
+            format!(
+                "INSERT OR IGNORE INTO gacha_records
+                    (id, player_id, card_pool_type, card_pool_name, resource_id, quality_level,
+                     resource_type, name, count, time, is_off_rate, occurrence_no,
+                     order_in_timestamp, is_mock, mock_batch_id)
+                 SELECT id, player_id, card_pool_type, card_pool_name, resource_id, quality_level,
+                        resource_type, name, count, time, {is_off_rate}, {occurrence_no},
+                        {order_in_timestamp}, {is_mock}, {mock_batch_id}
+                 FROM legacy.gacha_records"
+            )
+        }
+        "player_import_info" => {
+            let is_inferred = if columns.contains("is_inferred") {
+                "is_inferred"
+            } else {
+                "0"
+            };
+            format!(
+                "INSERT OR IGNORE INTO player_import_info
+                    (player_id, last_imported_at, is_inferred)
+                 SELECT player_id, last_imported_at, {is_inferred}
+                 FROM legacy.player_import_info"
+            )
+        }
+        _ => "INSERT OR IGNORE INTO pool_history_boundaries
+                (player_id, card_pool_type, earliest_time, earliest_time_count, confirmed_at)
+              SELECT player_id, card_pool_type, earliest_time, earliest_time_count, confirmed_at
+              FROM legacy.pool_history_boundaries"
+            .to_string(),
+    }
+}
+
 impl Database {
     pub fn migrate_legacy_files(old: &Path, data: &Path, state: &Path) -> Result<(), String> {
         if !old.exists() {
@@ -103,11 +172,12 @@ impl Database {
         let source = Connection::open(old).map_err(|e| format!("打开旧数据库失败: {e}"))?;
         let config = Connection::open(state).map_err(|e| e.to_string())?;
         config.execute_batch(
-            "CREATE TABLE IF NOT EXISTS game_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, game_dir TEXT NOT NULL);
+            "CREATE TABLE IF NOT EXISTS game_settings (id INTEGER PRIMARY KEY AUTOINCREMENT, game_dir TEXT NOT NULL, log_path TEXT NOT NULL DEFAULT '');
              CREATE TABLE IF NOT EXISTS nanoka_cache (cache_key TEXT PRIMARY KEY, json TEXT NOT NULL, updated_at INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS cloud_sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, completed_at TEXT NOT NULL);"
         ).map_err(|e| e.to_string())?;
+        let _ = config.execute("ALTER TABLE game_settings ADD COLUMN log_path TEXT NOT NULL DEFAULT ''", []);
         let completed: bool = config
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM app_migrations WHERE name='legacy_split_completed')",
@@ -141,13 +211,11 @@ impl Database {
             if !exists {
                 continue;
             }
-            let sql = match table {
-                "gacha_records" => "INSERT OR IGNORE INTO gacha_records SELECT id,player_id,card_pool_type,card_pool_name,resource_id,quality_level,resource_type,name,count,time,is_off_rate,occurrence_no,order_in_timestamp,is_mock,mock_batch_id FROM legacy.gacha_records",
-                "player_import_info" => "INSERT OR IGNORE INTO player_import_info SELECT player_id,last_imported_at,is_inferred FROM legacy.player_import_info",
-                _ => "INSERT OR IGNORE INTO pool_history_boundaries SELECT player_id,card_pool_type,earliest_time,earliest_time_count,confirmed_at FROM legacy.pool_history_boundaries",
-            };
+            let columns = table_columns(&source, table)
+                .map_err(|e| format!("读取旧表 {table} 结构失败: {e}"))?;
+            let sql = legacy_table_migration_sql(table, &columns);
             target
-                .execute(sql, [])
+                .execute(&sql, [])
                 .map_err(|e| format!("迁移 {table} 失败: {e}"))?;
         }
         config
@@ -176,7 +244,7 @@ impl Database {
                 continue;
             }
             let sql = if table == "game_settings" {
-                "INSERT OR IGNORE INTO game_settings SELECT id,game_dir FROM legacy.game_settings"
+                "INSERT OR IGNORE INTO game_settings (id, game_dir, log_path) SELECT id, game_dir, '' FROM legacy.game_settings"
             } else {
                 "INSERT OR IGNORE INTO nanoka_cache SELECT cache_key,json,updated_at FROM legacy.nanoka_cache"
             };
@@ -267,6 +335,13 @@ impl Database {
              CREATE TABLE IF NOT EXISTS cloud_sync_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS app_migrations (name TEXT PRIMARY KEY, completed_at TEXT NOT NULL);"
         ).map_err(|e| e.to_string())?;
+        // Existing installations have the original game_dir-only schema.
+        // ALTER TABLE is intentionally best-effort because fresh databases
+        // may already include the column in their CREATE statement.
+        let _ = self.config_conn.execute(
+            "ALTER TABLE game_settings ADD COLUMN log_path TEXT NOT NULL DEFAULT ''",
+            [],
+        );
         Ok(())
     }
 
@@ -1803,8 +1878,8 @@ impl Database {
             .map_err(|e| e.to_string())?;
         self.config_conn
             .execute(
-                "INSERT INTO game_settings (game_dir) VALUES (?1)",
-                params![settings.game_dir],
+                "INSERT INTO game_settings (game_dir, log_path) VALUES (?1, ?2)",
+                params![settings.game_dir, settings.log_path],
             )
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -1814,12 +1889,13 @@ impl Database {
     pub fn get_settings(&self) -> Result<GameSettings, String> {
         let mut stmt = self
             .config_conn
-            .prepare("SELECT game_dir FROM game_settings LIMIT 1")
+            .prepare("SELECT game_dir, log_path FROM game_settings LIMIT 1")
             .map_err(|e| e.to_string())?;
         let settings = stmt
             .query_row([], |row| {
                 Ok(GameSettings {
                     game_dir: row.get(0)?,
+                    log_path: row.get(1)?,
                 })
             })
             .unwrap_or_default();
@@ -2114,6 +2190,80 @@ mod tests {
         db.init_tables().unwrap();
         db.migrate().unwrap();
         db
+    }
+
+    #[test]
+    fn legacy_split_migrates_databases_missing_newer_columns() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let test_dir = std::env::temp_dir().join(format!("wuwa-gacha-legacy-split-test-{unique}"));
+        std::fs::create_dir_all(&test_dir).unwrap();
+        let legacy_path = test_dir.join(crate::paths::LEGACY_DB_FILENAME);
+        let data_path = test_dir.join(crate::paths::MAIN_DB_FILENAME);
+        let state_path = test_dir.join(crate::paths::STATE_DB_FILENAME);
+        let legacy = Connection::open(&legacy_path).unwrap();
+        legacy
+            .execute_batch(
+                "CREATE TABLE gacha_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player_id TEXT NOT NULL,
+                    card_pool_type TEXT NOT NULL,
+                    card_pool_name TEXT NOT NULL,
+                    resource_id INTEGER NOT NULL,
+                    quality_level INTEGER NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    count INTEGER NOT NULL,
+                    time TEXT NOT NULL,
+                    is_off_rate INTEGER NOT NULL DEFAULT 0
+                );
+                INSERT INTO gacha_records
+                    (player_id, card_pool_type, card_pool_name, resource_id, quality_level,
+                     resource_type, name, count, time, is_off_rate)
+                VALUES
+                    ('10001', '1', '角色活动唤取', 101, 3, 'weapon', '测试武器', 1,
+                     '2026-01-01 12:00:00', 0),
+                    ('10001', '1', '角色活动唤取', 101, 3, 'weapon', '测试武器', 1,
+                     '2026-01-01 12:00:00', 0);
+                CREATE TABLE player_import_info (
+                    player_id TEXT PRIMARY KEY,
+                    last_imported_at TEXT
+                );
+                INSERT INTO player_import_info VALUES ('10001', '2026-01-01 12:00:00');",
+            )
+            .unwrap();
+        drop(legacy);
+
+        Database::migrate_legacy_files(&legacy_path, &data_path, &state_path).unwrap();
+        let migrated = Database::new_with_state(&data_path, &state_path).unwrap();
+        let rows: Vec<(i64, i64, i64, Option<String>)> = migrated
+            .conn
+            .prepare(
+                "SELECT occurrence_no, order_in_timestamp, is_mock, mock_batch_id
+                 FROM gacha_records ORDER BY id",
+            )
+            .unwrap()
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(rows, vec![(0, 0, 0, None), (1, 1, 0, None)]);
+        let import_info: (String, i64) = migrated
+            .conn
+            .query_row(
+                "SELECT last_imported_at, is_inferred FROM player_import_info WHERE player_id='10001'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(import_info, ("2026-01-01 12:00:00".to_string(), 0));
+
+        drop(migrated);
+        std::fs::remove_dir_all(test_dir).unwrap();
     }
 
     #[test]

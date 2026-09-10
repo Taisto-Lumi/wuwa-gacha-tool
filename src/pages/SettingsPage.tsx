@@ -142,6 +142,7 @@ export default function SettingsPage() {
   const fetchSummaries = useGachaStore((state) => state.fetchSummaries);
   const [gameDirInput, setGameDirInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [selectingGamePath, setSelectingGamePath] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<GameDirValidation | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(pools.length > 0 && storeSummaries.length === 0);
@@ -162,6 +163,7 @@ export default function SettingsPage() {
   const [fadingBoundaryHighlight, setFadingBoundaryHighlight] = useState(false);
   const boundaryHighlightTimerRef = useRef<number | null>(null);
   const boundaryHighlightFadeTimerRef = useRef<number | null>(null);
+  const gamePathSelectionIdRef = useRef(0);
   const [boundarySaving, setBoundarySaving] = useState(false);
   const [completionPulls, setCompletionPulls] = useState('');
   const [updateInfo, setUpdateInfo] = useState<Update | null>(null);
@@ -258,7 +260,7 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (settings) setGameDirInput(settings.game_dir);
+    if (settings) setGameDirInput(settings.log_path);
   }, [settings]);
 
   useEffect(() => {
@@ -424,14 +426,14 @@ export default function SettingsPage() {
     [summaries],
   );
   const totalRecords = summaries.reduce((sum, summary) => sum + summary.record_count, 0);
-  const savedPath = settings?.game_dir.trim() ?? '';
+  const savedPath = settings?.log_path.trim() ?? '';
   const isDirty = gameDirInput.trim() !== savedPath;
   const directoryState = !gameDirInput.trim()
-    ? { label: '未配置', tone: 'idle' }
+      ? { label: '未配置日志', tone: 'idle' }
     : validating
       ? { label: '校验中', tone: 'checking' }
       : validation?.valid
-        ? { label: '目录可用', tone: 'ready' }
+        ? { label: '日志可用', tone: 'ready' }
         : { label: '需要检查', tone: 'error' };
 
   const selectedSummary = deleteTarget?.playerId ? summaryByPlayer.get(deleteTarget.playerId) : null;
@@ -500,12 +502,48 @@ export default function SettingsPage() {
     return `距上次记录更新已 ${daysAgo} 天（超过 ${SYNC_WARN_DAYS} 天阈值）。建议尽快更新记录，以免丢失 6 个月临界区的缺口。`;
   };
 
-  const handleSelectFolder = async () => {
+  const handleSelectClientLog = async () => {
+    const selectionId = gamePathSelectionIdRef.current + 1;
+    gamePathSelectionIdRef.current = selectionId;
+    setSelectingGamePath(true);
+    let selected: string | null;
     try {
-      const selected = await openDialog({ directory: true, multiple: false, title: '选择鸣潮游戏目录' });
-      if (selected) setGameDirInput(selected);
+      selected = await openDialog({
+        filters: [{ name: 'Client.log', extensions: ['log'] }],
+        multiple: false,
+        title: '选择 Client.log',
+      });
     } catch {
-      addToast('error', '无法打开目录选择器');
+      if (selectionId === gamePathSelectionIdRef.current) {
+        addToast('error', '无法打开日志文件选择器');
+        setSelectingGamePath(false);
+      }
+      return;
+    }
+
+    if (typeof selected !== 'string') {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        setSelectingGamePath(false);
+      }
+      return;
+    }
+
+    try {
+      const result = await gachaApi.validateGameDir(selected);
+      if (selectionId !== gamePathSelectionIdRef.current) return;
+      if (!result.valid) {
+        addToast('error', result.message);
+        return;
+      }
+      setGameDirInput(result.normalized_game_dir);
+    } catch {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        addToast('error', '无法校验所选 Client.log，请重试');
+      }
+    } finally {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        setSelectingGamePath(false);
+      }
     }
   };
 
@@ -828,36 +866,36 @@ export default function SettingsPage() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-tide">
-                    <ResonanceActionIcon tone="gold"><ResonanceIcon kind="directory" size={15} /></ResonanceActionIcon>游戏目录
+                    <ResonanceActionIcon tone="gold"><ResonanceIcon kind="traces" size={15} /></ResonanceActionIcon>Client.log
                   </div>
                   <div className="settings-state-readout" data-state={directoryState.tone}>
                     <span className="settings-state-pulse" />
                     <span>{directoryState.label}</span>
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-wave">请选择包含 <span className="text-tide">Client</span> 文件夹的游戏根目录，软件会自动查找 <span className="font-mono text-[11px]">Client\Saved\Logs\Client.log</span></p>
+                <p className="mt-1 text-xs text-wave">请选择游戏根目录下的 <span className="font-mono text-[11px]">Client\Saved\Logs\Client.log</span> 文件，软件会保存日志文件路径</p>
 
                 <label className="mt-5 block">
-                  <span className="mb-2 block text-xs text-wave">游戏根目录</span>
+                  <span className="mb-2 block text-xs text-wave">Client.log 文件路径</span>
                   <div className="flex gap-2">
                     <ShareMaskedInput
                       type="text"
                       value={gameDirInput}
                       displayValue={displayPath(gameDirInput)}
                       onChange={(event) => setGameDirInput(event.target.value)}
-                      placeholder="例如: E:\Wuthering Waves\Wuthering Waves Game"
+                      placeholder="例如: E:\Wuthering Waves\Wuthering Waves Game\Client\Saved\Logs\Client.log"
                       containerClassName="min-w-0 flex-1"
                       className="glass-input w-full px-3 py-2.5 text-sm"
                     />
-                    <button onClick={handleSelectFolder} className="glass-input flex shrink-0 items-center gap-2 px-3 py-2.5 text-sm text-wave hover:text-tide">
-                      <ResonanceActionIcon size="sm"><ResonanceIcon kind="directory" size={14} /></ResonanceActionIcon>选择
+                    <button type="button" onClick={handleSelectClientLog} disabled={selectingGamePath} className="glass-input flex shrink-0 items-center gap-2 px-3 py-2.5 text-sm text-wave hover:text-tide disabled:opacity-50">
+                      <ResonanceActionIcon size="sm"><ResonanceIcon kind="traces" size={14} /></ResonanceActionIcon>日志
                     </button>
                   </div>
                 </label>
 
                 <div className="mt-2 min-h-5">
                   {!gameDirInput.trim() ? (
-                    <div className="flex items-center gap-2 text-[11px] text-wave"><ResonanceIcon kind="info" size={13} />尚未设置游戏目录</div>
+                    <div className="flex items-center gap-2 text-[11px] text-wave"><ResonanceIcon kind="info" size={13} />尚未设置 Client.log</div>
                   ) : validating ? (
                     <div className="flex items-center gap-2 text-[11px] text-wave"><LoaderCircle size={12} className="animate-spin" />正在检查 Client.log</div>
                   ) : validation?.valid ? (

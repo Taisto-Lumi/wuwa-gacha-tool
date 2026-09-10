@@ -50,6 +50,7 @@ export default function Home() {
   const [previewingImport, setPreviewingImport] = useState(false);
   const [extractedUrl, setExtractedUrl] = useState('');
   const [extractingUrl, setExtractingUrl] = useState(false);
+  const [selectingGamePath, setSelectingGamePath] = useState(false);
   const [urlExtractError, setUrlExtractError] = useState('');
   const [cloudLink, setCloudLink] = useState<CloudGachaLink | null>(null);
   const [cloudOpening, setCloudOpening] = useState(false);
@@ -58,6 +59,7 @@ export default function Home() {
   const confirmedBoundaryPlayerId = useGachaStore((state) => state.confirmedBoundaryPlayerId);
   const scanContentRef = useRef<HTMLDivElement>(null);
   const startupSyncStartedRef = useRef(false);
+  const gamePathSelectionIdRef = useRef(0);
   const [scanContentHeight, setScanContentHeight] = useState<number | null>(null);
 
   useLayoutEffect(() => {
@@ -140,7 +142,7 @@ export default function Home() {
   }, [addToast]);
 
   const openScanModal = () => {
-    setGameDirInput(settings?.game_dir || '');
+    setGameDirInput(settings?.log_path || '');
     setUrlInput('');
     setJsonPath('');
     setExtractedUrl('');
@@ -152,7 +154,7 @@ export default function Home() {
   };
 
   const handleScanByDir = async () => {
-    const dir = gameDirInput || settings?.game_dir || '';
+    const dir = gameDirInput || settings?.log_path || '';
     if (!dir) return;
     await scanGacha(dir);
     if (!useGachaStore.getState().error) setShowScanModal(false);
@@ -174,12 +176,73 @@ export default function Home() {
   };
 
   const handleSelectGameDir = async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      defaultPath: gameDirInput.trim() || settings?.game_dir || undefined,
-    });
-    if (typeof selected === 'string') setGameDirInput(selected);
+    const selectionId = gamePathSelectionIdRef.current + 1;
+    gamePathSelectionIdRef.current = selectionId;
+    setSelectingGamePath(true);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        defaultPath: gameDirInput.trim() || settings?.log_path || undefined,
+      });
+      if (typeof selected === 'string' && selectionId === gamePathSelectionIdRef.current) {
+        setGameDirInput(selected);
+      }
+    } catch {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        addToast('error', '无法打开目录选择器');
+      }
+    } finally {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        setSelectingGamePath(false);
+      }
+    }
+  };
+
+  const handleSelectClientLog = async () => {
+    const selectionId = gamePathSelectionIdRef.current + 1;
+    gamePathSelectionIdRef.current = selectionId;
+    setSelectingGamePath(true);
+    let selected: string | null;
+    try {
+      selected = await open({
+        filters: [{ name: 'Client.log', extensions: ['log'] }],
+        multiple: false,
+        defaultPath: gameDirInput.trim() || settings?.log_path || undefined,
+        title: '选择 Client.log',
+      });
+    } catch {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        addToast('error', '无法打开日志文件选择器');
+        setSelectingGamePath(false);
+      }
+      return;
+    }
+
+    if (typeof selected !== 'string') {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        setSelectingGamePath(false);
+      }
+      return;
+    }
+
+    try {
+      const validation = await gachaApi.validateGameDir(selected);
+      if (selectionId !== gamePathSelectionIdRef.current) return;
+      if (!validation.valid) {
+        addToast('error', validation.message);
+        return;
+      }
+      setGameDirInput(validation.normalized_game_dir);
+    } catch {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        addToast('error', '无法校验所选 Client.log，请重试');
+      }
+    } finally {
+      if (selectionId === gamePathSelectionIdRef.current) {
+        setSelectingGamePath(false);
+      }
+    }
   };
 
   const handleImportJson = async () => {
@@ -212,7 +275,7 @@ export default function Home() {
   };
 
   const handleExtractUrl = async () => {
-    const dir = gameDirInput.trim() || settings?.game_dir || '';
+    const dir = gameDirInput.trim() || settings?.log_path || '';
     if (!dir) return;
     setExtractingUrl(true);
     setUrlExtractError('');
@@ -373,9 +436,9 @@ export default function Home() {
               >
               {scanMode === 'dir' && (
                 <div className="space-y-2">
-                  <p className="text-sm text-wave">请先在游戏中打开抽卡历史记录，再选择游戏安装目录。</p>
+                  <p className="text-sm text-wave">请先在游戏中打开抽卡历史记录，再选择 Client.log 文件。</p>
                   <div className="mt-3">
-                    <label htmlFor="scan-game-dir" className="text-sm text-wave">游戏目录</label>
+                    <label htmlFor="scan-game-dir" className="text-sm text-wave">Client.log 路径</label>
                     <div className="mt-1 flex gap-2">
                       <ShareMaskedInput
                         id="scan-game-dir"
@@ -383,20 +446,20 @@ export default function Home() {
                         value={gameDirInput}
                         displayValue={displayPath(gameDirInput)}
                         onChange={(event) => setGameDirInput(event.target.value)}
-                        placeholder="例如: E:\Wuthering Waves\Wuthering Waves"
+                        placeholder="例如: E:\Wuthering Waves\Wuthering Waves Game\Client\Saved\Logs\Client.log"
                         containerClassName="min-w-0 flex-1"
                         className="glass-input w-full px-3 py-2 text-sm"
                       />
                       <button
                         type="button"
-                        onClick={handleSelectGameDir}
-                        disabled={scanning || extractingUrl}
+                        onClick={handleSelectClientLog}
+                        disabled={scanning || extractingUrl || selectingGamePath}
                         className="glass-input flex shrink-0 items-center gap-1.5 px-3 text-xs text-wave hover:text-tide disabled:opacity-50"
                       >
-                        <ResonanceIcon kind="directory" size={14} />选择
+                        <ResonanceIcon kind="traces" size={14} />日志
                       </button>
                     </div>
-                    <p className="mt-1 text-xs text-wave">目录下需要包含 Client/Saved/Logs/Client.log 文件</p>
+                    <p className="mt-1 text-xs text-wave">请选择游戏根目录\Client\Saved\Logs\Client.log 日志文件</p>
                   </div>
 
                   <div className="mt-3">

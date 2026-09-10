@@ -1082,7 +1082,7 @@ export default function RecordsPage() {
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-1"
               >
-                <ResonanceEmptyState variant="records" title="暂无抽卡记录" description="先从首页扫描游戏目录或导入 JSON 文件" className="w-full">
+                <ResonanceEmptyState variant="records" title="暂无抽卡记录" description="先从首页选择 Client.log 扫描或导入 JSON 文件" className="w-full">
                   <Link to="/" className="instrument-link-button">前往首页</Link>
                 </ResonanceEmptyState>
               </motion.div>
