@@ -1493,6 +1493,27 @@ time { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zer
 .ratio-dial-summary p { margin-top: 14px; color: var(--wave-dim); font-size: 10px; line-height: 1.45; }
 @keyframes ratioDialOrbit { to { transform: rotate(360deg); } }
 
+/* 垫抽面板与 UP 表现面板：填满网格高度，内容垂直居中 */
+.home-pity-panel { display: flex; flex-direction: column; }
+.home-pity-panel > .relative { flex: 1; display: flex; flex-direction: column; }
+.home-pity-grid { flex: 1; align-content: center; }
+
+.up-performance-panel { display: flex; flex-direction: column; }
+.up-performance-panel > .relative { flex: 1; display: flex; flex-direction: column; }
+@media (min-width: 1024px) {
+  .up-performance-panel .ratio-dial-layout {
+    flex: 1;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    justify-items: center;
+    align-content: center;
+    gap: 20px;
+  }
+  .up-performance-panel .ratio-dial { width: min(100%, 160px); }
+  .up-performance-panel .ratio-dial-summary { max-width: 220px; }
+  .up-performance-panel .ratio-summary-total { justify-content: center; }
+}
+
 .pity-row { position: relative; }
 .pity-row::after {
   content: '';
@@ -2496,6 +2517,8 @@ time { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zer
 
   .home-pity-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .recent-five-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .up-performance-panel .ratio-dial { width: min(100%, 176px); }
+  .up-performance-panel .ratio-dial-summary { max-width: 260px; }
 
   .settings-console-grid {
     grid-template-columns: minmax(520px, 760px) minmax(760px, 1fr);

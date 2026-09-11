@@ -250,7 +250,7 @@ export default function HomeDashboard({ stats, records, confirmedBoundaryPools =
 
       <div className="home-dashboard-primary grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)]">
         <GlowCard
-          className="resonance-panel px-5 py-4"
+          className="resonance-panel home-pity-panel px-5 py-4"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -267,7 +267,7 @@ export default function HomeDashboard({ stats, records, confirmedBoundaryPools =
         </GlowCard>
 
         <GlowCard
-          className="resonance-panel p-5"
+          className="resonance-panel up-performance-panel p-5"
         >
           <h2 className="panel-heading flex items-center gap-2 text-sm font-medium text-tide">
             <ResonanceIcon kind="target" size={15} /> UP 角色池表现
