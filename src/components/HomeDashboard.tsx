@@ -72,13 +72,11 @@ function buildRecentFiveStars(
 function SummaryMetric({
   label,
   value,
-  detail,
   icon,
   accent = false,
 }: {
   label: string;
   value: React.ReactNode;
-  detail: string;
   icon: React.ReactNode;
   accent?: boolean;
 }) {
@@ -93,17 +91,27 @@ function SummaryMetric({
       <div className={`mt-2 text-2xl font-semibold tabular-nums ${accent ? 'text-[#d8bd84]' : 'text-tide'}`}>
         {value}
       </div>
-      <div className="mt-0.5 text-[11px] text-wave-dim truncate">{detail}</div>
       <span className="summary-metric-node" aria-hidden="true" />
     </div>
   );
 }
 
-function RatioDial({ rate, wins, total }: { rate: number; wins: number; total: number }) {
+function RatioDial({
+  rate,
+  wins,
+  losses,
+  total,
+}: {
+  rate: number;
+  wins: number;
+  losses: number;
+  total: number;
+}) {
   const safeRate = Math.min(Math.max(rate, 0), 100);
+  const rateLabel = total > 0 ? `${safeRate.toFixed(1)}%` : '-';
   return (
     <div className="ratio-dial-layout">
-      <div className="ratio-dial" aria-label={`不歪率 ${safeRate.toFixed(1)}%`}>
+      <div className="ratio-dial" aria-label={`不歪率 ${rateLabel}`}>
         <svg viewBox="0 0 140 140" aria-hidden="true">
           <circle cx="70" cy="70" r="52" fill="none" stroke="#d4d4d4" strokeOpacity="0.08" strokeWidth="8" />
           <circle
@@ -125,13 +133,30 @@ function RatioDial({ rate, wins, total }: { rate: number; wins: number; total: n
           ))}
         </svg>
         <div className="ratio-dial-value">
-          <span>{total > 0 ? safeRate.toFixed(1) : '-'}</span>
-          {total > 0 ? <small>%</small> : null}
+          <div>
+            <span>{total > 0 ? safeRate.toFixed(1) : '-'}</span>
+            {total > 0 ? <small>%</small> : null}
+          </div>
+          <em>不歪率</em>
         </div>
       </div>
-      <div className="ratio-dial-legend">
-        <div><span className="ratio-legend-mark ratio-legend-win" />不歪 <strong>{wins}</strong></div>
-        <div><span className="ratio-legend-mark ratio-legend-off" />总五星 <strong>{total}</strong></div>
+      <div className="ratio-dial-summary">
+        <div className="ratio-summary-total">
+          <span>UP 数量</span>
+          <div><strong>{total}</strong><small>次</small></div>
+        </div>
+        <div
+          className="ratio-summary-track"
+          role="img"
+          aria-label={`直接 UP ${wins} 次，歪 ${losses} 次`}
+        >
+          <span className="ratio-summary-win" style={{ width: `${total > 0 ? safeRate : 0}%` }} />
+          <span className="ratio-summary-loss" style={{ width: `${total > 0 ? 100 - safeRate : 0}%` }} />
+        </div>
+        <div className="ratio-summary-outcomes">
+          <span><i className="ratio-summary-dot ratio-summary-dot-win" />直接 UP <strong>{wins}</strong></span>
+          <span><i className="ratio-summary-dot ratio-summary-dot-loss" />歪 <strong>{losses}</strong></span>
+        </div>
       </div>
     </div>
   );
@@ -210,22 +235,17 @@ export default function HomeDashboard({ stats, records, confirmedBoundaryPools =
       || (OPTIONAL_POOL_TYPES.has(pool.pool_type) && pool.count > 0)),
     [stats.pools],
   );
-  const eventRoleFiveStars = stats.pools
-    .filter((pool) => ['1', '8', '10'].includes(pool.pool_type))
-    .reduce((sum, pool) => sum + pool.five_star_count, 0);
-  const notOffRateCount = Math.max(eventRoleFiveStars - stats.off_rate_count, 0);
-
   return (
     <div className="dashboard-enter home-dashboard space-y-4">
       <section
         className="resonance-metrics grid grid-cols-2 gap-px overflow-hidden md:grid-cols-3 xl:grid-cols-6"
       >
-        <SummaryMetric label="累计唤取" value={<AnimatedCounter value={stats.total_draws} shimmer pulse milestone />} detail={`${stats.total_four_star} 个四星`} icon={<ResonanceIcon kind="spark" size={14} />} />
-        <SummaryMetric label="五星数量" value={<AnimatedCounter value={stats.total_five_star} pulse milestone />} detail="已导入记录中的五星" icon={<ResonanceIcon kind="trophy" size={14} />} accent />
-        <SummaryMetric label="五星概率" value={<AnimatedCounter value={stats.five_star_rate} formatter={(v) => `${v.toFixed(2)}%`} pulse />} detail="占全部已导入记录" icon={<ResonanceIcon kind="target" size={14} />} />
-        <SummaryMetric label="平均五星抽数" value={<AnimatedCounter value={stats.avg_five_star_pity} formatter={(v) => (v > 0 ? `${v.toFixed(1)} 抽` : '-')} />} detail="仅统计可确认五星间隔" icon={<ResonanceIcon kind="chart" size={14} />} />
-        <SummaryMetric label="每个 UP 角色" value={<AnimatedCounter value={stats.avg_up_role_pulls} formatter={(v) => (v > 0 ? `${v.toFixed(1)} 抽` : '-')} />} detail="完整 UP 周期均值" icon={<ResonanceIcon kind="user" size={14} />} accent />
-        <SummaryMetric label="每把 UP 武器" value={<AnimatedCounter value={stats.avg_up_weapon_pulls} formatter={(v) => (v > 0 ? `${v.toFixed(1)} 抽` : '-')} />} detail="完整五星周期均值" icon={<ResonanceIcon kind="weapon" size={14} />} accent />
+        <SummaryMetric label="累计唤取" value={<AnimatedCounter value={stats.total_draws} shimmer pulse milestone />} icon={<ResonanceIcon kind="spark" size={14} />} />
+        <SummaryMetric label="五星数量" value={<AnimatedCounter value={stats.total_five_star} pulse milestone />} icon={<ResonanceIcon kind="trophy" size={14} />} accent />
+        <SummaryMetric label="五星概率" value={<AnimatedCounter value={stats.five_star_rate} formatter={(v) => `${v.toFixed(2)}%`} pulse />} icon={<ResonanceIcon kind="target" size={14} />} />
+        <SummaryMetric label="平均五星抽数" value={<AnimatedCounter value={stats.avg_five_star_pity} formatter={(v) => (v > 0 ? `${v.toFixed(1)} 抽` : '-')} />} icon={<ResonanceIcon kind="chart" size={14} />} />
+        <SummaryMetric label="每个 UP 角色" value={<AnimatedCounter value={stats.avg_up_role_pulls} formatter={(v) => (v > 0 ? `${v.toFixed(1)} 抽` : '-')} />} icon={<ResonanceIcon kind="user" size={14} />} accent />
+        <SummaryMetric label="每把 UP 武器" value={<AnimatedCounter value={stats.avg_up_weapon_pulls} formatter={(v) => (v > 0 ? `${v.toFixed(1)} 抽` : '-')} />} icon={<ResonanceIcon kind="weapon" size={14} />} accent />
       </section>
 
       <div className="home-dashboard-primary grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)]">
@@ -252,20 +272,12 @@ export default function HomeDashboard({ stats, records, confirmedBoundaryPools =
           <h2 className="panel-heading flex items-center gap-2 text-sm font-medium text-tide">
             <ResonanceIcon kind="target" size={15} /> UP 角色池表现
           </h2>
-          <p className="mt-1 text-[11px] text-wave-dim">仅统计 UP 角色池中的五星结果</p>
-
-          <RatioDial rate={stats.win_rate_5050} wins={notOffRateCount} total={eventRoleFiveStars} />
-
-          <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.06]">
-            <div className="submetric-cell p-3">
-              <div className="text-[11px] text-wave">不歪次数</div>
-              <div className="mt-1 text-xl font-semibold text-[#8fc8be]">{notOffRateCount}</div>
-            </div>
-            <div className="submetric-cell p-3">
-              <div className="text-[11px] text-wave">歪的次数</div>
-              <div className="mt-1 text-xl font-semibold text-[#d99a9a]">{stats.off_rate_count}</div>
-            </div>
-          </div>
+          <RatioDial
+            rate={stats.win_rate_5050}
+            wins={stats.win_count_5050}
+            losses={stats.off_rate_count}
+            total={stats.attempt_count_5050}
+          />
         </GlowCard>
       </div>
 

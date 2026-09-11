@@ -165,6 +165,8 @@ pub struct GachaStats {
     /// Average completed five-star interval, calculated within each pool.
     pub avg_five_star_pity: f64,
     pub win_rate_5050: f64,
+    pub win_count_5050: i32,
+    pub attempt_count_5050: i32,
     pub off_rate_count: i32,
     pub avg_up_role_pulls: f64,
     pub avg_up_weapon_pulls: f64,
@@ -364,14 +366,29 @@ impl GachaStats {
         });
 
         // 50/50 统计
-        let limited_char_fives: Vec<&GachaRecord> = sorted
+        let mut off_rate_count = 0i32;
+        let mut win_count_5050 = 0i32;
+        let mut attempt_count_5050 = 0i32;
+        let mut awaiting_guaranteed_up: HashSet<String> = HashSet::new();
+        for record in sorted
             .iter()
-            .filter(|r| r.is_five_star() && is_limited_char_pool(&r.card_pool_type))
-            .collect();
-        let off_rate_count = limited_char_fives.iter().filter(|r| r.is_off_rate).count() as i32;
-        let win_count = limited_char_fives.len() as i32 - off_rate_count;
-        let win_rate_5050 = if !limited_char_fives.is_empty() {
-            (win_count as f64 / limited_char_fives.len() as f64) * 100.0
+            .filter(|record| record.is_five_star() && is_limited_char_pool(&record.card_pool_type))
+        {
+            if record.is_off_rate {
+                off_rate_count += 1;
+                if !awaiting_guaranteed_up.contains(&record.card_pool_type) {
+                    attempt_count_5050 += 1;
+                }
+                awaiting_guaranteed_up.insert(record.card_pool_type.clone());
+            } else if awaiting_guaranteed_up.remove(&record.card_pool_type) {
+                // A guaranteed UP resolves the preceding loss and is not a 50/50 result.
+            } else {
+                attempt_count_5050 += 1;
+                win_count_5050 += 1;
+            }
+        }
+        let win_rate_5050 = if attempt_count_5050 > 0 {
+            (win_count_5050 as f64 / attempt_count_5050 as f64) * 100.0
         } else {
             0.0
         };
@@ -518,6 +535,8 @@ impl GachaStats {
             max_pity,
             avg_five_star_pity,
             win_rate_5050,
+            win_count_5050,
+            attempt_count_5050,
             off_rate_count,
             avg_up_role_pulls,
             avg_up_weapon_pulls,
@@ -613,7 +632,7 @@ impl GachaInsights {
                                 if cycle_has_start {
                                     featured_segments.push(segment);
                                 }
-                                if cycle_has_start && !lost_since_featured {
+                                if !lost_since_featured {
                                     featured_attempt_count += 1;
                                 }
                                 lost_since_featured = true;
@@ -635,12 +654,10 @@ impl GachaInsights {
                                     } else {
                                         featured_segments.clear();
                                     }
-                                    if !lost_since_featured {
-                                        featured_attempt_count += 1;
-                                        featured_win_count += 1;
-                                    }
-                                } else {
-                                    featured_segments.clear();
+                                }
+                                if !lost_since_featured {
+                                    featured_attempt_count += 1;
+                                    featured_win_count += 1;
                                 }
                                 seen_featured = true;
                                 lost_since_featured = false;
@@ -1696,9 +1713,9 @@ mod tests {
         assert_eq!(pool.featured_median_pulls, Some(35.0));
         assert_eq!(pool.featured_best_pulls, Some(10));
         assert_eq!(pool.featured_worst_pulls, Some(60));
-        assert_eq!(pool.featured_attempt_count, 2);
-        assert_eq!(pool.featured_win_count, 1);
-        assert_eq!(pool.featured_win_rate, Some(50.0));
+        assert_eq!(pool.featured_attempt_count, 3);
+        assert_eq!(pool.featured_win_count, 2);
+        assert_eq!(pool.featured_win_rate, Some(66.66666666666666));
         assert!(!pool.featured_guaranteed);
         assert_eq!(pool.featured_distribution[0].count, 1);
         assert_eq!(pool.featured_distribution[5].count, 1);
@@ -1713,6 +1730,34 @@ mod tests {
         assert!(pool.featured_cycles[1].segments[0].is_off_rate);
         assert_eq!(pool.featured_cycles[1].segments[0].pulls, 20);
         assert_eq!(pool.featured_cycles[1].segments[1].pulls, 40);
+    }
+
+    #[test]
+    fn featured_win_rate_excludes_the_guaranteed_up_after_an_off_rate() {
+        let mut records = Vec::new();
+        for (id, is_off_rate) in [(1, false), (2, false), (3, true), (4, false), (5, false)] {
+            let mut item = record(id, "1", 5, &format!("2026-01-01 00:00:{id:02}"));
+            item.resource_id = if is_off_rate { 1104 } else { 2001 };
+            item.name = if is_off_rate { "维里奈" } else { "UP角色" }.to_string();
+            item.is_off_rate = is_off_rate;
+            records.push(item);
+        }
+
+        let insights = GachaInsights::from_records(&records, false);
+        let pool = insights
+            .pools
+            .iter()
+            .find(|pool| pool.pool_type == "1")
+            .unwrap();
+        assert_eq!(pool.featured_attempt_count, 4);
+        assert_eq!(pool.featured_win_count, 3);
+        assert_eq!(pool.featured_win_rate, Some(75.0));
+
+        let stats = GachaStats::from_records(&records);
+        assert_eq!(stats.off_rate_count, 1);
+        assert_eq!(stats.win_count_5050, 3);
+        assert_eq!(stats.attempt_count_5050, 4);
+        assert_eq!(stats.win_rate_5050, 75.0);
     }
 
     #[test]

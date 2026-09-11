@@ -194,6 +194,8 @@ export interface GachaStats {
   max_pity: number;
   avg_five_star_pity: number;
   win_rate_5050: number;
+  win_count_5050: number;
+  attempt_count_5050: number;
   off_rate_count: number;
   avg_up_role_pulls: number;
   avg_up_weapon_pulls: number;

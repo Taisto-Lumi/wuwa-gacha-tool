@@ -1442,21 +1442,55 @@ time { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zer
   inset: 0;
   z-index: 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #e0e0e0;
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 18px rgba(143, 200, 190, 0.16);
 }
+.ratio-dial-value > div { display: flex; align-items: baseline; justify-content: center; }
 .ratio-dial-value small { margin: 7px 0 0 2px; color: #8fc8be; font-size: 10px; font-weight: 500; }
-.ratio-dial-legend { display: grid; gap: 13px; color: var(--wave); font-size: 11px; }
-.ratio-dial-legend > div { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 8px; }
-.ratio-dial-legend strong { color: var(--tide); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.ratio-legend-mark { width: 6px; height: 6px; transform: rotate(45deg); }
-.ratio-legend-win { background: #8fc8be; box-shadow: 0 0 8px rgba(143, 200, 190, 0.38); }
-.ratio-legend-off { border: 1px solid #d8bd84; background: #292929; }
+.ratio-dial-value em {
+  margin-top: 1px;
+  color: var(--wave-dim);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 400;
+  text-shadow: none;
+}
+.ratio-dial-summary { min-width: 0; }
+.ratio-summary-total {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--wave);
+  font-size: 11px;
+}
+.ratio-summary-total > div { display: flex; align-items: baseline; gap: 3px; }
+.ratio-summary-total strong { color: var(--tide); font-size: 24px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.ratio-summary-total small { color: var(--wave-dim); font-size: 10px; }
+.ratio-summary-track {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  margin-top: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.ratio-summary-track > span { display: block; height: 100%; }
+.ratio-summary-win { flex: 0 0 auto; background: #8fc8be; box-shadow: 0 0 10px rgba(143, 200, 190, 0.28); }
+.ratio-summary-loss { flex: 0 0 auto; background: #c77f7f; opacity: 0.72; }
+.ratio-summary-outcomes { display: flex; justify-content: space-between; gap: 10px; margin-top: 10px; color: var(--wave); font-size: 10px; }
+.ratio-summary-outcomes span { display: flex; min-width: 0; align-items: center; gap: 5px; white-space: nowrap; }
+.ratio-summary-outcomes strong { color: var(--tide); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ratio-summary-dot { width: 5px; height: 5px; flex: 0 0 auto; transform: rotate(45deg); }
+.ratio-summary-dot-win { background: #8fc8be; }
+.ratio-summary-dot-loss { background: #c77f7f; }
+.ratio-dial-summary p { margin-top: 14px; color: var(--wave-dim); font-size: 10px; line-height: 1.45; }
 @keyframes ratioDialOrbit { to { transform: rotate(360deg); } }
 
 .pity-row { position: relative; }
@@ -1473,7 +1507,6 @@ time { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zer
   transition: opacity 180ms ease, transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .pity-row:hover::after { opacity: 1; transform: scaleX(1); }
-.submetric-cell,
 .five-star-entry { background: #242424; }
 .five-star-entry { position: relative; overflow: hidden; transition: background-color 180ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1), border-color 180ms ease; }
 .five-star-entry:hover { background: #2a2a2a; border-color: rgba(216, 189, 132, 0.16); transform: translateY(-2px); }
@@ -1698,7 +1731,7 @@ time { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zer
 .analysis-method-note em { flex: none; font-style: normal; }
 .analysis-metric-grid,
 .analysis-featured-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.analysis-metric { min-height: 92px; border-right: 1px solid rgba(255, 255, 255, 0.055); }
+.analysis-metric { min-height: 72px; border-right: 1px solid rgba(255, 255, 255, 0.055); }
 .analysis-metric:last-child { border-right: 0; }
 .analysis-formula-strip {
   display: grid;
@@ -2452,6 +2485,8 @@ time { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'zer
 }
 @media (max-width: 767px) {
   .ratio-dial-layout { grid-template-columns: minmax(106px, 132px) minmax(84px, 1fr); }
+  .ratio-summary-outcomes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .ratio-summary-outcomes span { white-space: normal; }
 }
 
 @media (min-width: 1680px) {

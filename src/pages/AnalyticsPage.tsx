@@ -179,12 +179,11 @@ function formatPull(value: number | null) {
   return value === null ? '-' : `${value.toFixed(Number.isInteger(value) ? 0 : 1)} 抽`;
 }
 
-function Metric({ label, value, detail, tone = '#e2e4e3' }: { label: string; value: string; detail: string; tone?: string }) {
+function Metric({ label, value, tone = '#e2e4e3' }: { label: string; value: string; tone?: string }) {
   return (
     <div className="analysis-metric min-w-0 px-4 py-3.5">
       <div className="text-[11px] text-wave">{label}</div>
       <div className="mt-1.5 text-xl font-semibold tabular-nums" style={{ color: tone }}>{value}</div>
-      <div className="mt-1 text-[10px] leading-snug text-wave-dim">{detail}</div>
     </div>
   );
 }
@@ -728,12 +727,12 @@ export default function AnalyticsPage() {
                       <em style={{ color: reliability.tone }}>{reliability.label}</em>
                     </div>
                     <div className="analysis-metric-grid">
-                      <Metric label="五星获取数量" value={`${activePool.five_star_count} 个`} detail={`${activePool.complete_interval_count} 个完整区间纳入统计`} />
-                        <Metric label="平均多少抽出金" value={formatPull(activePool.average_pity)} detail="官方综合概率期望 54.1 抽" tone="#d8bd84" />
-                      <Metric label="一半在多少抽内" value={formatPull(activePool.median_pity)} detail="历史记录的中位数" />
-                      <Metric label="最快出金" value={formatPull(activePool.best_pity)} detail="上个五星后的最短等待" tone="#bfc4c0" />
-                      <Metric label="最慢出金" value={formatPull(activePool.worst_pity)} detail="上个五星后的最长等待" tone="#d99a9a" />
-                      <Metric label="40 抽内出金" value={`${activePool.early_rate.toFixed(1)}%`} detail={`${activePool.early_count} 次提前出金`} />
+                        <Metric label="五星获取数量" value={`${activePool.five_star_count} 个`} />
+                        <Metric label="平均多少抽出金" value={formatPull(activePool.average_pity)} tone="#d8bd84" />
+                      <Metric label="一半在多少抽内" value={formatPull(activePool.median_pity)} />
+                      <Metric label="最快出金" value={formatPull(activePool.best_pity)} tone="#bfc4c0" />
+                      <Metric label="最慢出金" value={formatPull(activePool.worst_pity)} tone="#d99a9a" />
+                      <Metric label="40 抽内出金" value={`${activePool.early_rate.toFixed(1)}%`} />
                     </div>
                   </section>
 
@@ -769,7 +768,7 @@ export default function AnalyticsPage() {
                           <div className="analysis-forecast-state" data-guaranteed={activePool.featured_guaranteed ? 'true' : 'false'}>
                             <span>{forecastModel === 'personal' ? '校准后下一抽' : '下一抽出金率'}</span>
                             <strong>{(forecast.nextPullRate * 100).toFixed(1)}%</strong>
-                            <small>{LIMITED_ROLE_POOL_TYPES.has(activePool.pool_type) ? (activePool.featured_guaranteed ? '大保底 · 五星即 UP' : '小保底 · 五星 50% 为 UP') : '五星保底进度独立计算'}</small>
+                            <small>{LIMITED_ROLE_POOL_TYPES.has(activePool.pool_type) ? (activePool.featured_guaranteed ? '大保底 · 五星即 UP' : '待判定 · 下一五星 50% 为 UP') : '五星保底进度独立计算'}</small>
                           </div>
                         </div>
                       </div>
@@ -890,17 +889,17 @@ export default function AnalyticsPage() {
                         <div>
                           <span className="analysis-section-index">FEATURED RESONANCE / 1–160</span>
                           <h2>抽到一个 UP 角色实际用了多少抽</h2>
-                          <p>从上一个 UP 五星之后开始计数，到下一个 UP 五星为止；中间如果歪了，会把歪五星前后的抽数合并。总体不歪率 {((activePool.featured_count / activePool.five_star_count) * 100).toFixed(1)}%；可识别直接胜率 {activePool.featured_win_rate === null ? '-' : `${activePool.featured_win_rate.toFixed(1)}%`}（{activePool.featured_win_count}/{activePool.featured_attempt_count}，排除大保底）。</p>
+                          <p>从上一个 UP 五星之后开始计数，到下一个 UP 五星为止；中间如果歪了，会把歪五星前后的抽数合并。不歪率 {activePool.featured_win_rate === null ? '-' : `${activePool.featured_win_rate.toFixed(1)}%`}（{activePool.featured_win_count}/{activePool.featured_attempt_count}，大保底 UP 不计入）。</p>
                         </div>
                         <div className="analysis-featured-expect"><span>理论期望</span><strong>81.15</strong><small>抽</small></div>
                       </div>
                       <div className="analysis-featured-metrics">
-                        <Metric label="统计 UP 获取" value={`${activePool.featured_cycle_count} 次`} detail={`${activePool.featured_count} 个 UP，首个不计入`} />
-                        <Metric label="平均拿到 UP" value={formatPull(activePool.featured_average_pulls)} detail="已包含歪与大保底" tone="#d8bd84" />
-                        <Metric label="一半在多少抽内" value={formatPull(activePool.featured_median_pulls)} detail="UP 获取抽数中位数" />
-                        <Metric label="总体不歪率" value={`${((activePool.featured_count / activePool.five_star_count) * 100).toFixed(1)}%`} detail={`${activePool.featured_count}/${activePool.five_star_count} 次五星为 UP`} tone="#bfc4c0" />
-                        <Metric label="最快拿到 UP" value={formatPull(activePool.featured_best_pulls)} detail="从上一个 UP 之后计数" />
-                        <Metric label="最慢拿到 UP" value={formatPull(activePool.featured_worst_pulls)} detail="理论上限 160 抽" tone="#d99a9a" />
+                        <Metric label="统计 UP 获取" value={`${activePool.featured_cycle_count} 次`} />
+                        <Metric label="平均拿到 UP" value={formatPull(activePool.featured_average_pulls)} tone="#d8bd84" />
+                        <Metric label="一半在多少抽内" value={formatPull(activePool.featured_median_pulls)} />
+                        <Metric label="不歪率" value={activePool.featured_win_rate === null ? '-' : `${activePool.featured_win_rate.toFixed(1)}%`} tone="#bfc4c0" />
+                        <Metric label="最快拿到 UP" value={formatPull(activePool.featured_best_pulls)} />
+                        <Metric label="最慢拿到 UP" value={formatPull(activePool.featured_worst_pulls)} tone="#d99a9a" />
                       </div>
                       <div className="analysis-featured-chart">
                         <div className="analysis-chart-heading">
