@@ -23,6 +23,7 @@ pub struct AppState {
     pub resource_pack_last_error: Mutex<Option<String>>,
     pub resource_pack_progress: Mutex<resource_pack::ResourcePackProgress>,
     pub app_data_dir: PathBuf,
+    pub sync_operation: tokio::sync::Mutex<()>,
     pub onedrive: tokio::sync::Mutex<onedrive::OneDriveState>,
 }
 
@@ -65,6 +66,7 @@ pub fn run() {
                 .build()
                 .map_err(|error| format!("Failed to initialize HTTP client: {error}"))?;
 
+            let sync_cleanup_dir = app_data_dir.clone();
             app.manage(AppState {
                 db: Mutex::new(database),
                 http,
@@ -74,9 +76,21 @@ pub fn run() {
                 resource_pack_last_error: Mutex::new(None),
                 resource_pack_progress: Mutex::new(resource_pack::ResourcePackProgress::default()),
                 app_data_dir,
+                sync_operation: tokio::sync::Mutex::new(()),
                 onedrive: tokio::sync::Mutex::new(onedrive::OneDriveState::default()),
             });
             let app_handle = app.handle().clone();
+            let cleanup_handle = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                // Cleanup is deliberately detached from startup so a large or
+                // locked legacy directory cannot delay the first screen.
+                let state = cleanup_handle.state::<AppState>();
+                let _guard = state.sync_operation.lock().await;
+                let _ = tokio::task::spawn_blocking(move || {
+                    commands::onedrive::cleanup_stale_sync_files(&sync_cleanup_dir);
+                })
+                .await;
+            });
             tauri::async_runtime::spawn(async move {
                 // 资源包不是首屏依赖，延迟检查避免与数据库和 WebView 初始化争抢资源。
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
