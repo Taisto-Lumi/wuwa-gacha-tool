@@ -1373,8 +1373,11 @@ pub fn get_game_dir(state: State<'_, AppState>) -> Result<GameSettings, String> 
 
     // 仅保存过游戏根目录时，按约定推导出 Client.log 并纳入列表。
     if entries.is_empty() && !settings.game_dir.trim().is_empty() {
-        let derived =
-            std::path::Path::new(settings.game_dir.trim()).join("Client/Saved/Logs/Client.log");
+        let derived = std::path::Path::new(settings.game_dir.trim())
+            .join("Client")
+            .join("Saved")
+            .join("Logs")
+            .join("Client.log");
         if derived.is_file() {
             let derived_path = derived.to_string_lossy().into_owned();
             {

@@ -163,7 +163,7 @@ more data"#;
     fn resolves_game_root_from_common_log_subdirectories() {
         let base = std::env::temp_dir().join(format!("wuwa-log-path-{}", std::process::id()));
         let root = base.join("Wuthering Waves Game");
-        let logs = root.join("Client/Saved/Logs");
+        let logs = root.join("Client").join("Saved").join("Logs");
         fs::create_dir_all(&logs).unwrap();
         let log_path = logs.join("Client.log");
         fs::write(&log_path, b"test").unwrap();
@@ -171,7 +171,7 @@ more data"#;
         for input in [
             &root,
             &root.join("Client"),
-            &root.join("Client/Saved"),
+            &root.join("Client").join("Saved"),
             &logs,
             &log_path,
         ] {
