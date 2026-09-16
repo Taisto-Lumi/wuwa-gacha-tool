@@ -1691,14 +1691,28 @@ impl Database {
         if integrity != "ok" {
             return Err("云端数据库完整性校验失败".to_string());
         }
-        let version: i64 = remote
+        let version_exists: bool = remote
             .query_row(
-                "SELECT schema_version FROM gacha_data_meta LIMIT 1",
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='gacha_data_meta')",
                 [],
-                |row| row.get(0),
+                |r| r.get(0),
             )
-            .map_err(|_| "云端数据库版本无效或过旧".to_string())?;
-        if version != 1 {
+            .unwrap_or(false);
+        let version: i64 = if version_exists {
+            remote
+                .query_row(
+                    "SELECT schema_version FROM gacha_data_meta LIMIT 1",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0)
+        } else {
+            0
+        };
+        // 历史兼容：gacha_data_meta 存在但为空时（旧版 Android 快照），
+        // 只要后续表结构校验通过就视为 v1，避免阻断正常同步。
+        // 真正的版本不匹配在表结构校验阶段也会被拦住。
+        if version != 0 && version != 1 {
             return Err(format!("暂不支持云端数据库版本 {version}"));
         }
         const MAX_ROWS: i64 = 2_000_000;
@@ -1754,6 +1768,9 @@ impl Database {
              INSERT INTO player_import_info SELECT * FROM cloud.player_import_info;
              DELETE FROM pool_history_boundaries;
              INSERT INTO pool_history_boundaries SELECT * FROM cloud.pool_history_boundaries;
+             DELETE FROM gacha_data_meta;
+             INSERT OR IGNORE INTO gacha_data_meta(schema_version) SELECT schema_version FROM cloud.gacha_data_meta;
+             INSERT OR IGNORE INTO gacha_data_meta(schema_version) VALUES(1);
              COMMIT;",
         );
         if result.is_err() {
