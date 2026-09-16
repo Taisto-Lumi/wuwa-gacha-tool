@@ -874,6 +874,16 @@ pub fn export_gacha_json(
     Ok(())
 }
 
+/// 手动备份抽卡数据库（仅 gacha-data.db）
+#[tauri::command]
+pub fn backup_gacha_database(state: State<'_, AppState>) -> Result<String, String> {
+    log::info!(target: "app::gacha", "event=manual_backup_started");
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let backup_path = db.create_manual_backup()?;
+    log::info!(target: "app::gacha", "event=manual_backup_completed");
+    Ok(backup_path)
+}
+
 fn filter_records_by_date(
     records: Vec<GachaRecord>,
     start_date: Option<&str>,

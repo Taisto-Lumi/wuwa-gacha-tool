@@ -9,11 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useUpdateStore } from '../store/useUpdateStore';
 import { useDevMockUpdatePreview } from '../dev-mock';
-import {
-  LoaderCircle,
-  ChevronRight,
-  ChevronDown,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, LoaderCircle } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
 import PageTransition from '../components/PageTransition';
 import PageSignalField from '../components/PageSignalField';
@@ -29,14 +25,16 @@ import { playUiFeedback } from '../lib/uiFeedback';
 import { gachaApi } from '../services/tauri-api';
 import { useGachaStore } from '../store/useGachaStore';
 import { displayPath, displaySensitiveText, displayUid, SHARE_MODE, shareSafeFileToken } from '../lib/shareMode';
-import {
-  getSyncFreshness,
-  daysSince,
-  SYNC_WARN_DAYS,
-  SYNC_DANGER_DAYS,
-  type SyncFreshness,
-} from '../lib/utils';
-import type { GameDirValidation, OneDriveDeviceLogin, OneDriveStatus, OneDriveSyncResult, PoolBoundaryStatus, RecordSummary, ResourcePackStatus } from '../types';
+import { daysSince, getSyncFreshness, SYNC_DANGER_DAYS, SYNC_WARN_DAYS, type SyncFreshness } from '../lib/utils';
+import type {
+  GameDirValidation,
+  OneDriveDeviceLogin,
+  OneDriveStatus,
+  OneDriveSyncResult,
+  PoolBoundaryStatus,
+  RecordSummary,
+  ResourcePackStatus
+} from '../types';
 
 type DeleteTarget = { playerId: string | null };
 type ExportTarget = { playerId: string; earliestDate: string; latestDate: string };
@@ -157,7 +155,10 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [backupConfirm, setBackupConfirm] = useState(false);
+  const [backing, setBacking] = useState(false);
   const [lastBackupPath, setLastBackupPath] = useState<string | null>(null);
+  const [lastBackupLabel, setLastBackupLabel] = useState('删除前备份已创建');
   const [boundaryStatuses, setBoundaryStatuses] = useState<Record<string, PoolBoundaryStatus[]>>({});
   const [boundaryPlayerId, setBoundaryPlayerId] = useState<string | null>(null);
   const [boundaryConfirmation, setBoundaryConfirmation] = useState<PoolBoundaryStatus | null>(null);
@@ -328,7 +329,7 @@ export default function SettingsPage() {
         refreshBoundaryStatuses(boundaryPlayerId),
         fetchSummaries(),
         useGachaStore.getState().fetchRecords(),
-        useGachaStore.getState().fetchStats(boundaryPlayerId),
+        useGachaStore.getState().fetchStats(boundaryPlayerId)
       ]);
       useGachaStore.getState().scheduleCloudSync();
       addToast('success', confirmed ? '已将该卡池现存记录确认为完整起点' : '已恢复首段历史边界提示');
@@ -421,7 +422,7 @@ export default function SettingsPage() {
 
   const summaryByPlayer = useMemo(
     () => new Map(summaries.map((summary) => [summary.player_id, summary])),
-    [summaries],
+    [summaries]
   );
   const totalRecords = summaries.reduce((sum, summary) => sum + summary.record_count, 0);
   const logPaths = settings?.log_paths ?? [];
@@ -445,7 +446,7 @@ export default function SettingsPage() {
       recordRange,
       lastImportedAt,
       hasImport,
-      impInferred: summary.is_inferred === true,
+      impInferred: summary.is_inferred === true
     };
   };
 
@@ -462,7 +463,7 @@ export default function SettingsPage() {
       recordRange: `${earliestRecord.slice(0, 10)} 至 ${latestRecord.slice(0, 10)}`,
       lastImportedAt: lastImported ? lastImported.slice(0, 10) : '',
       hasImport: Boolean(lastImported),
-      impInferred: summaries.every((item) => item.is_inferred === true),
+      impInferred: summaries.every((item) => item.is_inferred === true)
     };
   }, [summaries]);
 
@@ -482,11 +483,11 @@ export default function SettingsPage() {
   // 是否有任何一个玩家处于 warn 或 danger（用来切换顶部提示条的颜色）
   const anyWarn = useMemo(
     () => summaries.some((summary) => getSyncFreshness(summary.last_imported_at, summary.is_inferred) === 'warn'),
-    [summaries],
+    [summaries]
   );
   const anyDanger = useMemo(
     () => summaries.some((summary) => getSyncFreshness(summary.last_imported_at, summary.is_inferred) === 'danger'),
-    [summaries],
+    [summaries]
   );
   const anyStale = anyWarn || anyDanger;
 
@@ -506,7 +507,7 @@ export default function SettingsPage() {
       selected = await openDialog({
         filters: [{ name: 'Client.log', extensions: ['log'] }],
         multiple: false,
-        title: '选择 Client.log',
+        title: '选择 Client.log'
       });
     } catch {
       if (selectionId === gamePathSelectionIdRef.current) {
@@ -585,6 +586,7 @@ export default function SettingsPage() {
     setDeleting(false);
     if (!result) return;
     setLastBackupPath(result.backup_path);
+    setLastBackupLabel('删除前备份已创建');
     setDeleteTarget(null);
     setConfirmationText('');
   };
@@ -604,6 +606,21 @@ export default function SettingsPage() {
       await gachaApi.openBackupDirectory();
     } catch (error) {
       addToast('error', `无法打开备份目录: ${String(error)}`);
+    }
+  };
+
+  const handleBackup = async () => {
+    setBacking(true);
+    try {
+      const path = await gachaApi.backupGachaDatabase();
+      setLastBackupPath(path);
+      setLastBackupLabel('手动备份已创建');
+      addToast('success', '数据库备份已创建');
+      setBackupConfirm(false);
+    } catch (error) {
+      addToast('error', `备份失败: ${String(error)}`);
+    } finally {
+      setBacking(false);
     }
   };
 
@@ -630,14 +647,14 @@ export default function SettingsPage() {
       const suffix = customRange ? `${exportStartDate}_${exportEndDate}` : 'all';
       const path = await save({
         defaultPath: `uid_${shareSafeFileToken(exportTarget.playerId)}_${suffix}.json`,
-        filters: [{ name: 'JSON', extensions: ['json'] }],
+        filters: [{ name: 'JSON', extensions: ['json'] }]
       });
       if (!path) return;
       await gachaApi.exportGachaJson(
         exportTarget.playerId,
         path,
         customRange ? exportStartDate : undefined,
-        customRange ? exportEndDate : undefined,
+        customRange ? exportEndDate : undefined
       );
       setExportTarget(null);
       addToast('success', customRange ? '指定时间范围记录已导出' : '全部记录已导出');
@@ -694,7 +711,7 @@ export default function SettingsPage() {
             addToast('info', `通过 ${proxy} 下载中...`);
           }
           setUpdateProgress(percent);
-        },
+        }
       );
       unlistenFns.push(unlistenProgress);
 
@@ -702,7 +719,7 @@ export default function SettingsPage() {
         'update-download-done',
         () => {
           addToast('success', '下载完成，正在安装...');
-        },
+        }
       );
       unlistenFns.push(unlistenDone);
 
@@ -749,7 +766,7 @@ export default function SettingsPage() {
         refreshBoundaryStatuses(boundaryPlayerId),
         fetchSummaries(),
         useGachaStore.getState().fetchRecords(),
-        useGachaStore.getState().fetchStats(boundaryPlayerId),
+        useGachaStore.getState().fetchStats(boundaryPlayerId)
       ]);
       addToast('success', `已补足 ${inserted.length} 条模拟三星/四星记录，目标区间为 ${target} 抽`);
       setBoundaryConfirmation(null);
@@ -796,7 +813,10 @@ export default function SettingsPage() {
       const login = await gachaApi.startOneDriveLogin();
       setOneDriveLogin(login);
       setOneDriveStatus({ configured: true, connected: false, login_pending: true });
-      try { await navigator.clipboard.writeText(login.user_code); addToast('success', '设备码已自动复制'); } catch { addToast('info', '设备码已生成，请手动复制'); }
+      try {
+        await navigator.clipboard.writeText(login.user_code);
+        addToast('success', '设备码已自动复制');
+      } catch { addToast('info', '设备码已生成，请手动复制'); }
       await openUrl(login.verification_uri);
     } catch (error) {
       addToast('error', String(error));
@@ -816,7 +836,11 @@ export default function SettingsPage() {
     try {
       await gachaApi.disconnectOneDrive();
       setOneDriveLogin(null);
-      setOneDriveStatus((current) => ({ configured: current?.configured ?? false, connected: false, login_pending: false }));
+      setOneDriveStatus((current) => ({
+        configured: current?.configured ?? false,
+        connected: false,
+        login_pending: false
+      }));
       addToast('success', '已断开 OneDrive');
     } catch (error) {
       addToast('error', String(error));
@@ -849,7 +873,10 @@ export default function SettingsPage() {
             addToast('success', strategy === 'local' ? '已使用本机数据覆盖云端' : '已使用云端数据覆盖本机');
           } catch (retryError) { addToast('error', String(retryError)); }
         } else addToast('info', '已取消同步，数据未改变');
-      } else { addToast('error', message); useGachaStore.getState().setCloudSyncStatus('error', '云端同步失败'); }
+      } else {
+        addToast('error', message);
+        useGachaStore.getState().setCloudSyncStatus('error', '云端同步失败');
+      }
     } finally {
       setSyncingUid(null);
     }
@@ -865,7 +892,8 @@ export default function SettingsPage() {
             <p className="page-subtitle mt-1 text-xs text-wave">管理扫描目录与本地数据</p>
           </header>
 
-          <div className="settings-console-grid grid items-start gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+          <div
+            className="settings-console-grid grid items-start gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
             <div className="space-y-4">
               <motion.section
                 initial={{ opacity: 0, y: 6 }}
@@ -881,18 +909,22 @@ export default function SettingsPage() {
                     <span>{directoryState.label}</span>
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-wave">可添加多个版本游戏根目录下的 <span className="font-mono text-[11px]">Client\Saved\Logs\Client.log</span>；扫描时自动使用最近修改的一个</p>
+                <p className="mt-1 text-xs text-wave">可添加多个版本游戏根目录下的 <span
+                  className="font-mono text-[11px]">Client\Saved\Logs\Client.log</span>；扫描时自动使用最近修改的一个</p>
 
                 <ul className="mt-4 space-y-2">
                   {logPaths.length === 0 ? (
-                    <li className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] text-wave">尚未添加任何日志路径</li>
+                    <li
+                      className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] text-wave">尚未添加任何日志路径</li>
                   ) : logPaths.map((entry) => (
-                    <li key={entry.id} className="flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2">
+                    <li key={entry.id}
+                        className="flex items-center gap-2 rounded-lg border border-white/[0.08] px-3 py-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="truncate font-mono text-[11px] text-tide">{displayPath(entry.path)}</span>
                           {entry.path === activePath && (
-                            <span className="shrink-0 rounded bg-[#c9ab78]/15 px-1.5 py-0.5 text-[10px] text-[#c9ab78]">扫描使用</span>
+                            <span
+                              className="shrink-0 rounded bg-[#c9ab78]/15 px-1.5 py-0.5 text-[10px] text-[#c9ab78]">扫描使用</span>
                           )}
                         </div>
                         <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-wave">
@@ -933,7 +965,8 @@ export default function SettingsPage() {
                       containerClassName="min-w-0 flex-1"
                       className="glass-input w-full px-3 py-2.5 text-sm"
                     />
-                    <button type="button" onClick={handleSelectClientLog} disabled={selectingGamePath} className="glass-input flex shrink-0 items-center gap-2 px-3 py-2.5 text-sm text-wave hover:text-tide disabled:opacity-50">
+                    <button type="button" onClick={handleSelectClientLog} disabled={selectingGamePath}
+                            className="glass-input flex shrink-0 items-center gap-2 px-3 py-2.5 text-sm text-wave hover:text-tide disabled:opacity-50">
                       <ResonanceActionIcon size="sm"><ResonanceIcon kind="traces" size={14} /></ResonanceActionIcon>日志
                     </button>
                   </div>
@@ -941,13 +974,21 @@ export default function SettingsPage() {
 
                 <div className="mt-2 min-h-5">
                   {!gameDirInput.trim() ? (
-                    <div className="flex items-center gap-2 text-[11px] text-wave"><ResonanceIcon kind="info" size={13} />选择日志文件后即可添加到列表</div>
+                    <div className="flex items-center gap-2 text-[11px] text-wave"><ResonanceIcon kind="info"
+                                                                                                  size={13} />选择日志文件后即可添加到列表
+                    </div>
                   ) : validating ? (
-                    <div className="flex items-center gap-2 text-[11px] text-wave"><LoaderCircle size={12} className="animate-spin" />正在检查 Client.log</div>
+                    <div className="flex items-center gap-2 text-[11px] text-wave"><LoaderCircle size={12}
+                                                                                                 className="animate-spin" />正在检查
+                      Client.log</div>
                   ) : validation?.valid ? (
-                    <div className="flex items-center gap-2 text-[11px] text-[#8fc8be]"><ResonanceIcon kind="success" size={13} />{displaySensitiveText(validation.message)}</div>
+                    <div className="flex items-center gap-2 text-[11px] text-[#8fc8be]"><ResonanceIcon kind="success"
+                                                                                                       size={13} />{displaySensitiveText(validation.message)}
+                    </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-[11px] text-[#d99a9a]"><ResonanceIcon kind="error" size={13} />{displaySensitiveText(validation?.message)}</div>
+                    <div className="flex items-center gap-2 text-[11px] text-[#d99a9a]"><ResonanceIcon kind="error"
+                                                                                                       size={13} />{displaySensitiveText(validation?.message)}
+                    </div>
                   )}
                 </div>
 
@@ -958,7 +999,8 @@ export default function SettingsPage() {
                     className="tide-btn flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-40"
                   >
                     <ResonanceActionIcon size="sm" tone="gold">
-                      {saving ? <LoaderCircle size={12} className="animate-spin" /> : <ResonanceIcon kind="save" size={14} />}
+                      {saving ? <LoaderCircle size={12} className="animate-spin" /> :
+                        <ResonanceIcon kind="save" size={14} />}
                     </ResonanceActionIcon>
                     {saving ? '添加中' : '添加路径'}
                   </button>
@@ -982,19 +1024,26 @@ export default function SettingsPage() {
                     disabled={resourcePackDownloading}
                     className="flex shrink-0 items-center gap-1.5 text-xs text-wave transition-colors hover:text-tide disabled:opacity-50"
                   >
-                    <ResonanceActionIcon size="sm">{resourcePackDownloading ? <LoaderCircle size={12} className="animate-spin" /> : <ResonanceIcon kind={resourcePack?.installed ? 'refresh' : 'download'} size={14} />}</ResonanceActionIcon>
+                    <ResonanceActionIcon size="sm">{resourcePackDownloading ?
+                      <LoaderCircle size={12} className="animate-spin" /> :
+                      <ResonanceIcon kind={resourcePack?.installed ? 'refresh' : 'download'}
+                                     size={14} />}</ResonanceActionIcon>
                     {resourcePackDownloading ? '下载中' : resourcePackAction}
                   </button>
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-[11px]">
                   {resourcePackDownloading ? (
-                    <><LoaderCircle size={13} className="animate-spin text-wave" /><span className="text-wave">{resourcePack?.phase === 'archive' ? '正在下载资源包' : '正在获取资源包清单'}{resourcePack?.proxy ? ` · ${resourcePack.proxy}` : ''}</span></>
+                    <><LoaderCircle size={13} className="animate-spin text-wave" /><span
+                      className="text-wave">{resourcePack?.phase === 'archive' ? '正在下载资源包' : '正在获取资源包清单'}{resourcePack?.proxy ? ` · ${resourcePack.proxy}` : ''}</span></>
                   ) : resourcePack?.last_error ? (
-                    <><ResonanceIcon kind="error" size={13} className="text-[#d99a9a]" /><span className="text-[#d99a9a]">{resourcePack.installed ? '资源包更新失败，本地版本仍可用' : '资源包下载失败，可手动重试'}</span></>
+                    <><ResonanceIcon kind="error" size={13} className="text-[#d99a9a]" /><span
+                      className="text-[#d99a9a]">{resourcePack.installed ? '资源包更新失败，本地版本仍可用' : '资源包下载失败，可手动重试'}</span></>
                   ) : resourcePack?.installed ? (
-                    <><ResonanceIcon kind="success" size={13} className="text-[#8fc8be]" /><span className="text-[#8fc8be]">已安装 · v{resourcePack.version}</span></>
+                    <><ResonanceIcon kind="success" size={13} className="text-[#8fc8be]" /><span
+                      className="text-[#8fc8be]">已安装 · v{resourcePack.version}</span></>
                   ) : (
-                    <><ResonanceIcon kind="info" size={13} className="text-wave" /><span className="text-wave">尚未安装，应用启动后会自动下载</span></>
+                    <><ResonanceIcon kind="info" size={13} className="text-wave" /><span
+                      className="text-wave">尚未安装，应用启动后会自动下载</span></>
                   )}
                 </div>
                 {resourcePackDownloading && (
@@ -1003,13 +1052,18 @@ export default function SettingsPage() {
                       <span>{resourcePack?.phase === 'archive' ? '资源包' : '清单'}</span>
                       <span>{resourcePackPercent === null ? '准备中' : `${resourcePackPercent}%`}</span>
                     </div>
-                    <div className="mt-1 h-1.5 overflow-hidden bg-white/[0.08]"><div className="h-full bg-[#8fc8be] transition-[width] duration-200" style={{ width: resourcePackPercent === null ? '8%' : `${resourcePackPercent}%` }} /></div>
+                    <div className="mt-1 h-1.5 overflow-hidden bg-white/[0.08]">
+                      <div className="h-full bg-[#8fc8be] transition-[width] duration-200"
+                           style={{ width: resourcePackPercent === null ? '8%' : `${resourcePackPercent}%` }} />
+                    </div>
                   </div>
                 )}
                 {resourcePack?.installed && !resourcePack.last_error && (
-                  <p className="mt-2 text-[11px] leading-5 text-wave">包含 {resourcePack.resource_count.toLocaleString()} 项素材、{resourcePack.icon_count.toLocaleString()} 张图标和 {resourcePack.portrait_count.toLocaleString()} 张立绘。</p>
+                  <p
+                    className="mt-2 text-[11px] leading-5 text-wave">包含 {resourcePack.resource_count.toLocaleString()} 项素材、{resourcePack.icon_count.toLocaleString()} 张图标和 {resourcePack.portrait_count.toLocaleString()} 张立绘。</p>
                 )}
-                {resourcePack?.last_error && <p className="mt-2 break-words text-[11px] leading-5 text-[#d99a9a]">{displaySensitiveText(resourcePack.last_error)}</p>}
+                {resourcePack?.last_error &&
+                    <p className="mt-2 break-words text-[11px] leading-5 text-[#d99a9a]">{displaySensitiveText(resourcePack.last_error)}</p>}
               </motion.section>
 
               <section className="feedback-preference-row">
@@ -1021,7 +1075,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <button type="button" onClick={() => void playUiFeedback('record-inserted')} disabled={!soundEnabled} className="feedback-preview-button">试听</button>
+                  <button type="button" onClick={() => void playUiFeedback('record-inserted')} disabled={!soundEnabled}
+                          className="feedback-preview-button">试听
+                  </button>
                   <button
                     type="button"
                     role="switch"
@@ -1057,12 +1113,14 @@ export default function SettingsPage() {
                     className="flex items-center gap-1.5 text-wave transition-colors hover:text-tide disabled:opacity-50"
                   >
                     <ResonanceActionIcon size="sm">
-                      {checkingUpdate ? <LoaderCircle size={12} className="animate-spin" /> : <ResonanceIcon kind="refresh" size={15} />}
+                      {checkingUpdate ? <LoaderCircle size={12} className="animate-spin" /> :
+                        <ResonanceIcon kind="refresh" size={15} />}
                     </ResonanceActionIcon>
                     {checkingUpdate ? '检查中' : '检查更新'}
                   </button>
                 </div>
-                <p className="mt-2 leading-5">数据默认保存在本机；启用 OneDrive 后，会同步到你自己根目录下的 `Wuwa Gacha Tool` 文件夹。</p>
+                <p className="mt-2 leading-5">数据默认保存在本机；启用 OneDrive 后，会同步到你自己根目录下的 `Wuwa Gacha
+                  Tool` 文件夹。</p>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
                   <button
                     onClick={handleOpenLogDirectory}
@@ -1074,19 +1132,22 @@ export default function SettingsPage() {
                     onClick={() => void openUrl('https://github.com/juliy819/wuwa-gacha-tool')}
                     className="flex items-center gap-1.5 text-wave transition-colors hover:text-tide"
                   >
-                    <ResonanceActionIcon size="sm"><ResonanceIcon kind="repository" size={14} /></ResonanceActionIcon>GitHub 仓库
+                    <ResonanceActionIcon size="sm"><ResonanceIcon kind="repository" size={14} /></ResonanceActionIcon>GitHub
+                    仓库
                   </button>
                   <button
                     onClick={() => void openUrl('https://github.com/juliy819/wuwa-gacha-tool-android')}
                     className="flex items-center gap-1.5 text-wave transition-colors hover:text-tide"
                   >
-                    <ResonanceActionIcon size="sm"><ResonanceIcon kind="repository" size={14} /></ResonanceActionIcon>Android 仓库
+                    <ResonanceActionIcon size="sm"><ResonanceIcon kind="repository" size={14} /></ResonanceActionIcon>Android
+                    仓库
                   </button>
                   <button
                     onClick={() => void openUrl('https://github.com/juliy819/wuwa-gacha-tool/wiki/0.-%E9%A6%96%E9%A1%B5%E5%AF%BC%E8%88%AA')}
                     className="flex items-center gap-1.5 text-wave transition-colors hover:text-tide"
                   >
-                    <ResonanceActionIcon size="sm"><ResonanceIcon kind="external" size={14} /></ResonanceActionIcon>使用 Wiki
+                    <ResonanceActionIcon size="sm"><ResonanceIcon kind="external" size={14} /></ResonanceActionIcon>使用
+                    Wiki
                   </button>
                 </div>
               </section>
@@ -1101,8 +1162,12 @@ export default function SettingsPage() {
               <div className="mb-5 border-b border-white/[0.07] pb-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-medium text-tide"><ResonanceActionIcon tone="gold"><ResonanceIcon kind="sync" size={15} /></ResonanceActionIcon>数据与同步</div>
-                    <p className="mt-1 text-xs leading-5 text-wave">按 UID 管理抽卡记录，并通过 OneDrive 同步共享的 gacha-data.db 数据库快照。两端同时修改时会停止同步，避免覆盖；数据库删除、清空和模拟记录修改也会随快照同步。</p>
+                    <div className="flex items-center gap-2 text-sm font-medium text-tide"><ResonanceActionIcon
+                      tone="gold"><ResonanceIcon kind="sync" size={15} /></ResonanceActionIcon>数据与同步
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-wave">按 UID 管理抽卡记录，并通过 OneDrive 同步共享的
+                      gacha-data.db
+                      数据库快照。两端同时修改时会停止同步，避免覆盖；数据库删除、清空和模拟记录修改也会随快照同步。</p>
                     <button
                       type="button"
                       onClick={() => void openUrl('https://github.com/juliy819/wuwa-gacha-tool-android/releases')}
@@ -1112,18 +1177,25 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   {oneDriveStatus?.connected ? (
-                    <button type="button" onClick={() => void handleOneDriveDisconnect()} disabled={oneDriveBusy || syncingUid !== null} className="shrink-0 text-xs text-wave hover:text-tide disabled:opacity-40">断开连接</button>
+                    <button type="button" onClick={() => void handleOneDriveDisconnect()}
+                            disabled={oneDriveBusy || syncingUid !== null}
+                            className="shrink-0 text-xs text-wave hover:text-tide disabled:opacity-40">断开连接</button>
                   ) : (
-                    <button type="button" onClick={() => void handleOneDriveLogin()} disabled={oneDriveBusy || !oneDriveStatus?.configured} className="tide-btn flex shrink-0 items-center gap-2 px-3 py-2 text-xs disabled:opacity-40">
-                      {oneDriveBusy ? <LoaderCircle size={12} className="animate-spin" /> : <ResonanceIcon kind="cloud" size={13} />}
+                    <button type="button" onClick={() => void handleOneDriveLogin()}
+                            disabled={oneDriveBusy || !oneDriveStatus?.configured}
+                            className="tide-btn flex shrink-0 items-center gap-2 px-3 py-2 text-xs disabled:opacity-40">
+                      {oneDriveBusy ? <LoaderCircle size={12} className="animate-spin" /> :
+                        <ResonanceIcon kind="cloud" size={13} />}
                       连接 OneDrive
                     </button>
                   )}
                 </div>
 
                 {oneDriveStatus && !oneDriveStatus.configured && (
-                  <div className="mt-3 flex items-start gap-2 rounded-md border border-[#c99a68]/15 bg-[#c99a68]/[0.05] px-3 py-2.5 text-[11px] leading-5 text-[#d9bd9a]">
-                    <ResonanceIcon kind="warning" size={13} className="mt-0.5 shrink-0" />当前构建未配置 OneDrive Client ID，云同步暂不可用。
+                  <div
+                    className="mt-3 flex items-start gap-2 rounded-md border border-[#c99a68]/15 bg-[#c99a68]/[0.05] px-3 py-2.5 text-[11px] leading-5 text-[#d9bd9a]">
+                    <ResonanceIcon kind="warning" size={13} className="mt-0.5 shrink-0" />当前构建未配置 OneDrive Client
+                    ID，云同步暂不可用。
                   </div>
                 )}
 
@@ -1132,11 +1204,26 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <div className="text-[11px] text-wave">浏览器中输入验证码</div>
-                        <div className="mt-1 flex items-center gap-2"><div className="font-mono text-lg font-semibold tracking-[0.18em] text-[#d8bd84]">{SHARE_MODE ? '**** ****' : oneDriveLogin.user_code}</div><button type="button" onClick={() => void navigator.clipboard.writeText(oneDriveLogin.user_code).then(() => addToast('success', '设备码已复制')).catch(() => addToast('error', '复制失败'))} className="rounded-md px-2 py-1 text-[11px] text-[#c9ab78] hover:bg-[#c9ab78]/10">复制</button></div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div
+                            className="font-mono text-lg font-semibold tracking-[0.18em] text-[#d8bd84]">{SHARE_MODE ? '**** ****' : oneDriveLogin.user_code}</div>
+                          <button type="button"
+                                  onClick={() => void navigator.clipboard.writeText(oneDriveLogin.user_code).then(() => addToast('success', '设备码已复制')).catch(() => addToast('error', '复制失败'))}
+                                  className="rounded-md px-2 py-1 text-[11px] text-[#c9ab78] hover:bg-[#c9ab78]/10">复制
+                          </button>
+                        </div>
                       </div>
-                      <button type="button" onClick={() => void openUrl(oneDriveLogin.verification_uri)} className="flex items-center gap-1.5 text-xs text-[#c9ab78] hover:text-[#e0c58f]"><ResonanceIcon kind="external" size={13} />打开登录页</button>
+                      <button type="button" onClick={() => void openUrl(oneDriveLogin.verification_uri)}
+                              className="flex items-center gap-1.5 text-xs text-[#c9ab78] hover:text-[#e0c58f]">
+                        <ResonanceIcon kind="external" size={13} />打开登录页
+                      </button>
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-wave"><span className="flex items-center gap-2"><LoaderCircle size={11} className="animate-spin" />正在等待 Microsoft 登录确认</span><button type="button" onClick={() => void handleCancelOneDriveLogin()} className="text-[#d99a9a] hover:text-[#f0b0aa]">取消等待</button></div>
+                    <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-wave"><span
+                      className="flex items-center gap-2"><LoaderCircle size={11} className="animate-spin" />正在等待 Microsoft 登录确认</span>
+                      <button type="button" onClick={() => void handleCancelOneDriveLogin()}
+                              className="text-[#d99a9a] hover:text-[#f0b0aa]">取消等待
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1167,7 +1254,8 @@ export default function SettingsPage() {
                 <span>
                   官方抽卡链接仅保留近约 6 个月。建议至少每半年更新一次记录，超期缺口无法自动补回。
                   {anyDanger && (
-                    <span className="ml-2 text-[#d84848]">（检测到超过 {SYNC_DANGER_DAYS} 天未同步，可能已存在数据遗漏）</span>
+                    <span
+                      className="ml-2 text-[#d84848]">（检测到超过 {SYNC_DANGER_DAYS} 天未同步，可能已存在数据遗漏）</span>
                   )}
                   {!anyDanger && anyWarn && (
                     <span className="ml-2 text-[#d09960]">（检测到超过 {SYNC_WARN_DAYS} 天未同步，建议尽快同步）</span>
@@ -1176,24 +1264,35 @@ export default function SettingsPage() {
               </div>
 
               {lastBackupPath && (
-                <div className="mt-3 flex items-center gap-3 rounded-md border border-[#6faaa0]/15 bg-[#6faaa0]/[0.05] px-3 py-2.5">
+                <div
+                  className="mt-3 flex items-center gap-3 rounded-md border border-[#6faaa0]/15 bg-[#6faaa0]/[0.05] px-3 py-2.5">
                   <ResonanceIcon kind="success" size={15} className="shrink-0 text-[#8fc8be]" />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[11px] text-[#8fc8be]">删除前备份已创建</div>
-                    <div className="mt-0.5 truncate text-[10px] text-wave" title={displayPath(lastBackupPath)}>{displayPath(lastBackupPath)}</div>
+                    <div className="text-[11px] text-[#8fc8be]">{lastBackupLabel}</div>
+                    <div className="mt-0.5 truncate text-[10px] text-wave"
+                         title={displayPath(lastBackupPath)}>{displayPath(lastBackupPath)}</div>
                   </div>
-                  <button onClick={() => void openBackupDirectory()} className="flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] text-wave hover:bg-white/[0.05] hover:text-tide" title="打开备份目录"><ResonanceIcon kind="directory" size={12} />目录</button>
-                  <button onClick={copyBackupPath} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-wave hover:bg-white/[0.05] hover:text-tide" title="复制备份路径"><ResonanceActionIcon size="sm"><ResonanceIcon kind="copy" size={12} /></ResonanceActionIcon></button>
+                  <button onClick={() => void openBackupDirectory()}
+                          className="flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-[10px] text-wave hover:bg-white/[0.05] hover:text-tide"
+                          title="打开备份目录"><ResonanceIcon kind="directory" size={12} />目录
+                  </button>
+                  <button onClick={copyBackupPath}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-wave hover:bg-white/[0.05] hover:text-tide"
+                          title="复制备份路径"><ResonanceActionIcon size="sm"><ResonanceIcon kind="copy"
+                                                                                             size={12} /></ResonanceActionIcon>
+                  </button>
                 </div>
               )}
 
               <div className="mt-4 overflow-hidden rounded-md border border-white/[0.06]">
                 {summaryLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-10 text-xs text-wave"><LoaderCircle size={14} className="animate-spin" />正在读取数据摘要</div>
+                  <div className="flex items-center justify-center gap-2 py-10 text-xs text-wave"><LoaderCircle
+                    size={14} className="animate-spin" />正在读取数据摘要</div>
                 ) : summaryError ? (
                   <div className="py-10 text-center text-xs text-[#d99a9a]">数据摘要读取失败</div>
                 ) : pools.length === 0 ? (
-                  <ResonanceEmptyState variant="database" compact title="尚未保存抽卡记录" description="完成一次扫描或导入后，本地数据摘要会显示在这里" />
+                  <ResonanceEmptyState variant="database" compact title="尚未保存抽卡记录"
+                                       description="完成一次扫描或导入后，本地数据摘要会显示在这里" />
                 ) : (
                   <div className="divide-y divide-white/[0.05]">
                     {pools.map((playerId) => {
@@ -1210,20 +1309,20 @@ export default function SettingsPage() {
                       const palette =
                         isDanger
                           ? {
-                              border: 'border-[#d84848]/20',
-                              bg: 'bg-[#d84848]/[0.04]',
-                              badge: 'border-[#d84848]/25 bg-[#d84848]/[0.08] text-[#d84848]',
-                              label: '可能缺数据',
-                              icon: 'text-[#d99a9a]',
-                            }
+                            border: 'border-[#d84848]/20',
+                            bg: 'bg-[#d84848]/[0.04]',
+                            badge: 'border-[#d84848]/25 bg-[#d84848]/[0.08] text-[#d84848]',
+                            label: '可能缺数据',
+                            icon: 'text-[#d99a9a]'
+                          }
                           : isWarn
                             ? {
-                                border: 'border-[#c99a68]/20',
-                                bg: 'bg-[#c99a68]/[0.04]',
-                                badge: 'border-[#c99a68]/25 bg-[#c99a68]/[0.08] text-[#d09960]',
-                                label: '久未更新',
-                                icon: 'text-[#d9bd9a]',
-                              }
+                              border: 'border-[#c99a68]/20',
+                              bg: 'bg-[#c99a68]/[0.04]',
+                              badge: 'border-[#c99a68]/25 bg-[#c99a68]/[0.08] text-[#d09960]',
+                              label: '久未更新',
+                              icon: 'text-[#d9bd9a]'
+                            }
                             : null;
                       return (
                         <div
@@ -1232,7 +1331,8 @@ export default function SettingsPage() {
                           title={tip}
                         >
                           {palette && (
-                            <div className={`pointer-events-none absolute inset-0 rounded-md border ${palette.border}`} />
+                            <div
+                              className={`pointer-events-none absolute inset-0 rounded-md border ${palette.border}`} />
                           )}
                           <div className="relative min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -1262,7 +1362,9 @@ export default function SettingsPage() {
                                     <span className={palette ? palette.icon : ''}>
                                       最近记录更新 {summary.last_imported_at.slice(0, 10)}
                                       {summary.is_inferred && (
-                                        <span className="ml-1.5 inline-flex items-center gap-1 rounded border border-[#c9ab78]/25 bg-[#c9ab78]/[0.08] px-1.5 py-px text-[10px] text-[#c9ab78]" title="升级前已导入数据，同步时间由记录范围推断">
+                                        <span
+                                          className="ml-1.5 inline-flex items-center gap-1 rounded border border-[#c9ab78]/25 bg-[#c9ab78]/[0.08] px-1.5 py-px text-[10px] text-[#c9ab78]"
+                                          title="升级前已导入数据，同步时间由记录范围推断">
                                           <ResonanceIcon kind="info" size={10} /> 推断
                                         </span>
                                       )}
@@ -1293,16 +1395,28 @@ export default function SettingsPage() {
                               className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[10px] text-wave transition-colors hover:bg-white/[0.05] hover:text-tide disabled:cursor-default disabled:opacity-40"
                               title="管理卡池历史起点"
                             >
-                              {!boundaries ? <LoaderCircle size={11} className="animate-spin" /> : <ResonanceIcon kind="traces" size={12} />}
+                              {!boundaries ? <LoaderCircle size={11} className="animate-spin" /> :
+                                <ResonanceIcon kind="traces" size={12} />}
                               历史起点
                             </button>
-                            <button onClick={() => openExportDialog(playerId, summary)} className="flex h-8 w-8 items-center justify-center rounded-md text-wave hover:bg-white/[0.05] hover:text-tide" title={`导出 UID ${displayUid(playerId)} 的数据`}><ResonanceActionIcon size="sm"><ResonanceIcon kind="download" size={14} /></ResonanceActionIcon></button>
+                            <button onClick={() => openExportDialog(playerId, summary)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-md text-wave hover:bg-white/[0.05] hover:text-tide"
+                                    title={`导出 UID ${displayUid(playerId)} 的数据`}><ResonanceActionIcon
+                              size="sm"><ResonanceIcon kind="download" size={14} /></ResonanceActionIcon></button>
                             {oneDriveStatus?.connected && (
-                              <button type="button" onClick={() => void handleOneDriveSync(playerId)} disabled={syncingUid !== null || oneDriveBusy} className="flex h-8 w-8 items-center justify-center rounded-md text-[#c9ab78] hover:bg-[#c9ab78]/10 disabled:opacity-40" title={syncingUid === playerId ? '同步中' : '同步此 UID'}>
-                                {syncingUid === playerId ? <LoaderCircle size={13} className="animate-spin" /> : <ResonanceIcon kind="sync" size={14} />}
+                              <button type="button" onClick={() => void handleOneDriveSync(playerId)}
+                                      disabled={syncingUid !== null || oneDriveBusy}
+                                      className="flex h-8 w-8 items-center justify-center rounded-md text-[#c9ab78] hover:bg-[#c9ab78]/10 disabled:opacity-40"
+                                      title={syncingUid === playerId ? '同步中' : '同步此 UID'}>
+                                {syncingUid === playerId ? <LoaderCircle size={13} className="animate-spin" /> :
+                                  <ResonanceIcon kind="sync" size={14} />}
                               </button>
                             )}
-                            <button onClick={() => openDeleteDialog(playerId)} className="flex h-8 w-8 items-center justify-center rounded-md text-wave hover:bg-[#d84848]/10 hover:text-[#d99a9a]" title={`删除 UID ${displayUid(playerId)} 的记录`}><ResonanceActionIcon size="sm" tone="danger"><ResonanceIcon kind="delete" size={14} /></ResonanceActionIcon></button>
+                            <button onClick={() => openDeleteDialog(playerId)}
+                                    className="flex h-8 w-8 items-center justify-center rounded-md text-wave hover:bg-[#d84848]/10 hover:text-[#d99a9a]"
+                                    title={`删除 UID ${displayUid(playerId)} 的记录`}><ResonanceActionIcon size="sm"
+                                                                                                           tone="danger"><ResonanceIcon
+                              kind="delete" size={14} /></ResonanceActionIcon></button>
                           </div>
                         </div>
                       );
@@ -1313,13 +1427,31 @@ export default function SettingsPage() {
 
               <div className="mt-4 flex items-center justify-between border-t border-white/[0.05] pt-4">
                 <span className="text-[11px] text-wave">删除前会自动备份数据库</span>
-                <button
-                  onClick={() => openDeleteDialog(null)}
-                  disabled={pools.length === 0}
-                  className="flex items-center gap-2 rounded-md border border-[#d84848]/25 px-3 py-2 text-xs text-[#d99a9a] hover:bg-[#d84848]/10 disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  <ResonanceActionIcon size="sm" tone="danger"><ResonanceIcon kind="delete" size={14} /></ResonanceActionIcon>清空全部
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => void openBackupDirectory()}
+                    className="flex items-center gap-2 rounded-md border border-white/[0.1] px-3 py-2 text-xs text-wave hover:bg-white/[0.05] hover:text-tide"
+                  >
+                    <ResonanceIcon kind="directory" size={14} />打开备份目录
+                  </button>
+                  <button
+                    onClick={() => setBackupConfirm(true)}
+                    disabled={pools.length === 0 || backing}
+                    className="flex items-center gap-2 rounded-md border border-white/[0.1] px-3 py-2 text-xs text-wave hover:bg-white/[0.05] hover:text-tide disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    {backing ? <LoaderCircle size={14} className="animate-spin" /> :
+                      <ResonanceIcon kind="save" size={14} />}
+                    {backing ? '备份中' : '备份数据库'}
+                  </button>
+                  <button
+                    onClick={() => openDeleteDialog(null)}
+                    disabled={pools.length === 0}
+                    className="flex items-center gap-2 rounded-md border border-[#d84848]/25 px-3 py-2 text-xs text-[#d99a9a] hover:bg-[#d84848]/10 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ResonanceActionIcon size="sm" tone="danger"><ResonanceIcon kind="delete"
+                                                                                size={14} /></ResonanceActionIcon>清空全部
+                  </button>
+                </div>
               </div>
             </motion.section>
           </div>
@@ -1335,7 +1467,8 @@ export default function SettingsPage() {
           {exportTarget ? <>
             <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-md bg-[#8fc8be]/10 p-2 text-[#8fc8be]"><ResonanceIcon kind="download" size={19} /></div>
+                <div className="mt-0.5 rounded-md bg-[#8fc8be]/10 p-2 text-[#8fc8be]"><ResonanceIcon kind="download"
+                                                                                                     size={19} /></div>
                 <div>
                   <h2 id="export-dialog-title" className="text-base font-medium text-tide">导出抽卡记录</h2>
                   <p className="mt-1 text-xs text-wave">UID {displayUid(exportTarget.playerId)}</p>
@@ -1346,26 +1479,40 @@ export default function SettingsPage() {
             <div className="space-y-4 p-5">
               <div className="grid grid-cols-2 rounded-md border border-white/[0.07] bg-white/[0.025] p-0.5">
                 {(['all', 'custom'] as const).map((mode) => (
-                  <button type="button" key={mode} onClick={() => setExportMode(mode)} className={`rounded px-3 py-2 text-xs ${exportMode === mode ? 'bg-white/[0.09] text-tide' : 'text-wave hover:text-tide'}`}>
+                  <button type="button" key={mode} onClick={() => setExportMode(mode)}
+                          className={`rounded px-3 py-2 text-xs ${exportMode === mode ? 'bg-white/[0.09] text-tide' : 'text-wave hover:text-tide'}`}>
                     {mode === 'all' ? '全部记录' : '指定时间'}
                   </button>
                 ))}
               </div>
               {exportMode === 'custom' ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <div><span className="mb-1.5 block text-[10px] text-wave">开始日期</span><ThemedDateInput value={exportStartDate} min={exportTarget.earliestDate} max={exportEndDate || exportTarget.latestDate} onChange={setExportStartDate} label="导出开始日期" className="h-9 px-3 text-xs" /></div>
-                  <div><span className="mb-1.5 block text-[10px] text-wave">结束日期</span><ThemedDateInput value={exportEndDate} min={exportStartDate || exportTarget.earliestDate} max={exportTarget.latestDate} onChange={setExportEndDate} label="导出结束日期" className="h-9 px-3 text-xs" /></div>
-                  <p className={`col-span-2 text-[10px] ${exportStartDate && exportEndDate && exportStartDate <= exportEndDate ? 'text-wave' : 'text-[#d99a9a]'}`}>
+                  <div><span className="mb-1.5 block text-[10px] text-wave">开始日期</span><ThemedDateInput
+                    value={exportStartDate} min={exportTarget.earliestDate}
+                    max={exportEndDate || exportTarget.latestDate} onChange={setExportStartDate} label="导出开始日期"
+                    className="h-9 px-3 text-xs" /></div>
+                  <div><span className="mb-1.5 block text-[10px] text-wave">结束日期</span><ThemedDateInput
+                    value={exportEndDate} min={exportStartDate || exportTarget.earliestDate}
+                    max={exportTarget.latestDate} onChange={setExportEndDate} label="导出结束日期"
+                    className="h-9 px-3 text-xs" /></div>
+                  <p
+                    className={`col-span-2 text-[10px] ${exportStartDate && exportEndDate && exportStartDate <= exportEndDate ? 'text-wave' : 'text-[#d99a9a]'}`}>
                     {exportStartDate && exportEndDate && exportStartDate <= exportEndDate ? `将导出 ${exportStartDate} 至 ${exportEndDate} 的记录（含首尾两天）` : '请选择有效日期范围'}
                   </p>
                 </div>
               ) : (
-                <p className="text-xs leading-5 text-wave">导出该 UID 当前保存的全部抽卡记录，文件格式与 JSON 导入兼容。</p>
+                <p className="text-xs leading-5 text-wave">导出该 UID 当前保存的全部抽卡记录，文件格式与 JSON
+                  导入兼容。</p>
               )}
               <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={closeExportDialog} disabled={exporting} className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">取消</button>
-                <button type="button" onClick={() => void handleExport()} disabled={exporting || (exportMode === 'custom' && (!exportStartDate || !exportEndDate || exportStartDate > exportEndDate))} className="tide-btn flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-40">
-                  {exporting ? <LoaderCircle size={12} className="animate-spin" /> : <ResonanceIcon kind="download" size={13} />}
+                <button type="button" onClick={closeExportDialog} disabled={exporting}
+                        className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">取消
+                </button>
+                <button type="button" onClick={() => void handleExport()}
+                        disabled={exporting || (exportMode === 'custom' && (!exportStartDate || !exportEndDate || exportStartDate > exportEndDate))}
+                        className="tide-btn flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-40">
+                  {exporting ? <LoaderCircle size={12} className="animate-spin" /> :
+                    <ResonanceIcon kind="download" size={13} />}
                   {exporting ? '导出中' : '选择位置并导出'}
                 </button>
               </div>
@@ -1380,121 +1527,181 @@ export default function SettingsPage() {
           className="max-w-md border-[#d84848]/30 bg-[#242424]"
           labelledBy="delete-dialog-title"
         >
-            {deleteTarget && <>
-              <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-md bg-[#d84848]/10 p-2 text-[#d99a9a]"><ResonanceIcon kind="warning" size={19} /></div>
-                  <div>
-                    <h2 id="delete-dialog-title" className="text-base font-medium text-tide">
-                      {deleteTarget.playerId ? `删除 UID ${displayUid(deleteTarget.playerId)} 的记录` : '清空所有抽卡记录'}
-                    </h2>
-                    <p className="mt-1 text-xs text-wave">操作前会自动创建完整数据库备份</p>
-                  </div>
+          {deleteTarget && <>
+            <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-md bg-[#d84848]/10 p-2 text-[#d99a9a]"><ResonanceIcon kind="warning"
+                                                                                                     size={19} /></div>
+                <div>
+                  <h2 id="delete-dialog-title" className="text-base font-medium text-tide">
+                    {deleteTarget.playerId ? `删除 UID ${displayUid(deleteTarget.playerId)} 的记录` : '清空所有抽卡记录'}
+                  </h2>
+                  <p className="mt-1 text-xs text-wave">操作前会自动创建完整数据库备份</p>
                 </div>
-                <ResonanceCloseButton onClick={closeDeleteDialog} disabled={deleting} />
               </div>
+              <ResonanceCloseButton onClick={closeDeleteDialog} disabled={deleting} />
+            </div>
 
-              <div className="space-y-4 p-5">
-                <div className="grid grid-cols-2 gap-3 border-y border-white/[0.06] py-3 text-sm">
-                  <div><div className="text-xs text-wave">记录数量</div><div className="mt-1 font-medium text-tide">{targetRecordCount.toLocaleString()} 条</div></div>
-                  <div><div className="text-xs text-wave">涉及玩家</div><div className="mt-1 font-medium text-tide">{deleteTarget.playerId ? 1 : pools.length} 位</div></div>
-                  {targetMeta.recordRange && (
-                    <div className="col-span-2">
-                      <div className="text-xs text-wave">记录范围</div>
-                      <div className="mt-1 flex items-center gap-1.5 text-tide">
-                        <ResonanceIcon kind="database" size={12} className="text-[#8fc8be]" />
-                        {targetMeta.recordRange}
-                      </div>
+            <div className="space-y-4 p-5">
+              <div className="grid grid-cols-2 gap-3 border-y border-white/[0.06] py-3 text-sm">
+                <div>
+                  <div className="text-xs text-wave">记录数量</div>
+                  <div className="mt-1 font-medium text-tide">{targetRecordCount.toLocaleString()} 条</div>
+                </div>
+                <div>
+                  <div className="text-xs text-wave">涉及玩家</div>
+                  <div className="mt-1 font-medium text-tide">{deleteTarget.playerId ? 1 : pools.length} 位</div>
+                </div>
+                {targetMeta.recordRange && (
+                  <div className="col-span-2">
+                    <div className="text-xs text-wave">记录范围</div>
+                    <div className="mt-1 flex items-center gap-1.5 text-tide">
+                      <ResonanceIcon kind="database" size={12} className="text-[#8fc8be]" />
+                      {targetMeta.recordRange}
                     </div>
-                  )}
-                  {targetMeta.hasImport && (
-                    <div className="col-span-2">
-                      <div className="text-xs text-wave">最近记录更新</div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-tide">
-                        <ResonanceIcon kind="sync" size={12} className="text-[#c9ab78]" />
-                        <span className="tabular-nums">{targetMeta.lastImportedAt}</span>
-                        {targetMeta.impInferred && (
-                          <span className="inline-flex items-center gap-1 rounded border border-[#c9ab78]/25 bg-[#c9ab78]/[0.08] px-1.5 py-px text-[10px] text-[#c9ab78]" title="升级前已导入数据，同步时间由记录范围推断">
+                  </div>
+                )}
+                {targetMeta.hasImport && (
+                  <div className="col-span-2">
+                    <div className="text-xs text-wave">最近记录更新</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-tide">
+                      <ResonanceIcon kind="sync" size={12} className="text-[#c9ab78]" />
+                      <span className="tabular-nums">{targetMeta.lastImportedAt}</span>
+                      {targetMeta.impInferred && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded border border-[#c9ab78]/25 bg-[#c9ab78]/[0.08] px-1.5 py-px text-[10px] text-[#c9ab78]"
+                          title="升级前已导入数据，同步时间由记录范围推断">
                             <ResonanceIcon kind="info" size={10} /> 推断
                           </span>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
-                <label className="block">
-                  <span className="mb-2 block text-xs text-wave">输入 <span className="font-medium text-[#d99a9a]">{expectedConfirmation}</span> 确认删除</span>
-                  <input autoFocus value={confirmationText} onChange={(event) => setConfirmationText(event.target.value)} className="glass-input w-full px-3 py-2 text-sm" />
-                </label>
+              <label className="block">
+                <span className="mb-2 block text-xs text-wave">输入 <span
+                    className="font-medium text-[#d99a9a]">{expectedConfirmation}</span> 确认删除</span>
+                <input autoFocus value={confirmationText} onChange={(event) => setConfirmationText(event.target.value)}
+                       className="glass-input w-full px-3 py-2 text-sm" />
+              </label>
 
-                <div className="flex justify-end gap-2 pt-1">
-                  <button onClick={closeDeleteDialog} disabled={deleting} className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">取消</button>
-                  <button
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={closeDeleteDialog} disabled={deleting}
+                        className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">取消
+                </button>
+                <button
                     onClick={handleConfirmDelete}
                     disabled={deleting || confirmationText !== expectedConfirmation}
                     className="flex items-center gap-2 rounded-md bg-[#a64f4f] px-4 py-2 text-sm text-white hover:bg-[#b85a5a] disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    <ResonanceActionIcon size="sm" tone="danger">{deleting ? <LoaderCircle size={11} className="animate-spin" /> : <ResonanceIcon kind="delete" size={12} />}</ResonanceActionIcon>
-                    {deleting ? '备份并删除中' : '备份并删除'}
-                  </button>
-                </div>
+                >
+                  <ResonanceActionIcon size="sm" tone="danger">{deleting ?
+                    <LoaderCircle size={11} className="animate-spin" /> :
+                    <ResonanceIcon kind="delete" size={12} />}</ResonanceActionIcon>
+                  {deleting ? '备份并删除中' : '备份并删除'}
+                </button>
               </div>
-            </>}
+            </div>
+          </>}
+        </Modal>
+
+        <Modal
+          open={backupConfirm}
+          onClose={() => { if (!backing) setBackupConfirm(false); }}
+          closeDisabled={backing}
+          className="max-w-md border-white/[0.1] bg-[#242424]"
+          labelledBy="backup-dialog-title"
+        >
+          <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-md bg-[#8fc8be]/10 p-2 text-[#8fc8be]"><ResonanceIcon kind="save"
+                                                                                                   size={19} /></div>
+              <div>
+                <h2 id="backup-dialog-title" className="text-base font-medium text-tide">备份数据库</h2>
+                <p className="mt-1 text-xs text-wave">创建 gacha-data.db 的完整副本到 backups 目录</p>
+              </div>
+            </div>
+            <ResonanceCloseButton onClick={() => setBackupConfirm(false)} disabled={backing} />
+          </div>
+          <div className="space-y-4 p-5">
+            <p className="text-xs leading-5 text-wave">将使用 VACUUM 生成当前数据库的干净副本，不影响现有数据。备份文件保存在应用数据目录下的
+              backups 文件夹中。</p>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setBackupConfirm(false)} disabled={backing}
+                      className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">取消
+              </button>
+              <button type="button" onClick={() => void handleBackup()} disabled={backing}
+                      className="tide-btn flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-40">
+                {backing ? <LoaderCircle size={12} className="animate-spin" /> :
+                  <ResonanceIcon kind="save" size={13} />}
+                {backing ? '备份中' : '确认备份'}
+              </button>
+            </div>
+          </div>
         </Modal>
 
         <Modal
           open={boundaryPlayerId !== null && boundaryConfirmation === null}
-          onClose={() => { setBoundaryPlayerId(null); setBoundaryConfirmation(null); }}
+          onClose={() => {
+            setBoundaryPlayerId(null);
+            setBoundaryConfirmation(null);
+          }}
           closeDisabled={boundarySaving}
           className="max-w-2xl border-white/[0.08] bg-[#242424]"
           labelledBy="boundary-management-dialog-title"
         >
           {boundaryPlayerId && boundaryStatuses[boundaryPlayerId] && <>
-              <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-md bg-[#c9ab78]/10 p-2 text-[#c9ab78]"><ResonanceIcon kind="database" size={19} /></div>
-                  <div>
-                    <h2 id="boundary-management-dialog-title" className="text-base font-medium text-tide">卡池历史起点</h2>
-                    <p className="mt-1 text-xs text-wave">UID {displayUid(boundaryPlayerId)}</p>
-                  </div>
+            <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-md bg-[#c9ab78]/10 p-2 text-[#c9ab78]"><ResonanceIcon kind="database"
+                                                                                                     size={19} /></div>
+                <div>
+                  <h2 id="boundary-management-dialog-title"
+                      className="text-base font-medium text-tide">卡池历史起点</h2>
+                  <p className="mt-1 text-xs text-wave">UID {displayUid(boundaryPlayerId)}</p>
                 </div>
-                <ResonanceCloseButton onClick={() => setBoundaryPlayerId(null)} disabled={boundarySaving} />
               </div>
+              <ResonanceCloseButton onClick={() => setBoundaryPlayerId(null)} disabled={boundarySaving} />
+            </div>
 
-              <div className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
-                <p className="text-xs leading-5 text-wave">若确认首条记录前不存在更早垫抽，可将该卡池现存记录认定为完整起点。</p>
-                <section>
-                  <div className="divide-y divide-white/[0.05] overflow-hidden rounded-md border border-white/[0.06]">
-                    {boundaryStatuses[boundaryPlayerId].map((boundary) => {
-                      const isBoundaryHighlightTarget = highlightedBoundaryPoolType === boundary.pool_type;
-                      return (
+            <div className="max-h-[65vh] space-y-4 overflow-y-auto p-5">
+              <p className="text-xs leading-5 text-wave">若确认首条记录前不存在更早垫抽，可将该卡池现存记录认定为完整起点。</p>
+              <section>
+                <div className="divide-y divide-white/[0.05] overflow-hidden rounded-md border border-white/[0.06]">
+                  {boundaryStatuses[boundaryPlayerId].map((boundary) => {
+                    const isBoundaryHighlightTarget = highlightedBoundaryPoolType === boundary.pool_type;
+                    return (
                       <div key={boundary.pool_type} className="flex items-center justify-between gap-4 px-3 py-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2 text-xs text-tide">
                             <span>{boundary.pool_name}</span>
-                            <span className={`rounded border px-1.5 py-px text-[9px] ${boundary.confirmed ? 'border-[#6faaa0]/20 text-[#8fc8be]' : 'border-[#c9ab78]/20 text-[#c9ab78]'}`}>
+                            <span
+                              className={`rounded border px-1.5 py-px text-[9px] ${boundary.confirmed ? 'border-[#6faaa0]/20 text-[#8fc8be]' : 'border-[#c9ab78]/20 text-[#c9ab78]'}`}>
                               {boundary.confirmed ? '起点已确认' : '首段为下界'}
                             </span>
                           </div>
                           <p className="mt-1 text-[10px] leading-4 text-wave">
-                            首个五星 {boundary.first_five_star_name} · {boundary.first_five_star_time.slice(0, 10)} · 可见 {boundary.visible_pulls} 抽
+                            首个五星 {boundary.first_five_star_name} · {boundary.first_five_star_time.slice(0, 10)} ·
+                            可见 {boundary.visible_pulls} 抽
                             {!boundary.confirmed && '，当前不参与完整区间统计'}
                           </p>
                         </div>
                         <motion.button
                           key={`${boundary.pool_type}-${isBoundaryHighlightTarget ? 'highlight' : 'normal'}`}
-                          onClick={() => { setCompletionPulls(''); setBoundaryConfirmation(boundary); }}
+                          onClick={() => {
+                            setCompletionPulls('');
+                            setBoundaryConfirmation(boundary);
+                          }}
                           animate={isBoundaryHighlightTarget ? (fadingBoundaryHighlight ? {
                             borderColor: 'rgba(255,255,255,0)',
                             backgroundColor: 'rgba(0,0,0,0)',
                             color: '#9b9d9b',
-                            boxShadow: '0 0 0 rgba(0,0,0,0)',
+                            boxShadow: '0 0 0 rgba(0,0,0,0)'
                           } : {
                             borderColor: ['rgba(216,189,132,0.35)', 'rgba(216,189,132,0.9)', 'rgba(216,189,132,0.35)'],
                             backgroundColor: ['rgba(216,189,132,0.06)', 'rgba(216,189,132,0.18)', 'rgba(216,189,132,0.06)'],
                             color: ['#d8bd84', '#f0d9a7', '#d8bd84'],
-                            boxShadow: ['0 0 0 1px rgba(216,189,132,0.08)', '0 0 0 4px rgba(216,189,132,0.18)', '0 0 0 1px rgba(216,189,132,0.08)'],
+                            boxShadow: ['0 0 0 1px rgba(216,189,132,0.08)', '0 0 0 4px rgba(216,189,132,0.18)', '0 0 0 1px rgba(216,189,132,0.08)']
                           }) : undefined}
                           transition={isBoundaryHighlightTarget
                             ? fadingBoundaryHighlight
@@ -1506,13 +1713,13 @@ export default function SettingsPage() {
                           {boundary.confirmed ? '撤销确认' : '确认起点'}
                         </motion.button>
                       </div>
-                      );
-                    })}
-                  </div>
-                </section>
-                <p className="text-[10px] leading-5 text-wave">确认只影响边界标记与统计口径，不会修改、补造或删除记录；以后导入更早记录时会自动失效。</p>
-              </div>
-            </>}
+                    );
+                  })}
+                </div>
+              </section>
+              <p className="text-[10px] leading-5 text-wave">确认只影响边界标记与统计口径，不会修改、补造或删除记录；以后导入更早记录时会自动失效。</p>
+            </div>
+          </>}
         </Modal>
 
         <Modal
@@ -1534,28 +1741,39 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-4 p-5 text-xs leading-5 text-wave">
               {boundaryConfirmation.confirmed ? (
-                <p>撤销后，首页和记录页会重新将首个五星显示为 <span className="text-[#c9ab78]">≥{boundaryConfirmation.original_visible_pulls} 抽</span>，记录页恢复边界提示，并从完整区间、平均值和概率分布中排除。原始记录不会改变。</p>
+                <p>撤销后，首页和记录页会重新将首个五星显示为 <span
+                  className="text-[#c9ab78]">≥{boundaryConfirmation.original_visible_pulls} 抽</span>，记录页恢复边界提示，并从完整区间、平均值和概率分布中排除。原始记录不会改变。
+                </p>
               ) : (
                 <>
                   <p>仅当你确定该卡池开放以来的记录已经完整覆盖，且首条记录之前不存在垫抽时再确认。</p>
                   <div className="rounded-md border border-[#c9ab78]/15 bg-[#c9ab78]/[0.04] px-3 py-2.5 text-[#d9c28f]">
-                    确认后，首个五星将按 {boundaryConfirmation.visible_pulls} 抽纳入首页和分析统计；首页、记录页不再显示 ≥，记录页也不再显示该卡池的边界提示。
+                    确认后，首个五星将按 {boundaryConfirmation.visible_pulls} 抽纳入首页和分析统计；首页、记录页不再显示
+                    ≥，记录页也不再显示该卡池的边界提示。
                   </div>
                   <p>以后导入更早记录时，本次确认会自动失效并恢复边界提示。</p>
                   <div className="rounded-md border border-[#8fc8be]/15 bg-[#8fc8be]/[0.04] px-3 py-3">
                     <p className="text-[#b8d8d1]">如果你知道首个五星的实际抽数，可补足缺失的三星和四星记录。</p>
                     <div className="mt-2 flex items-center gap-2">
                       <label className="text-[11px] text-wave" htmlFor="boundary-target-pulls">实际抽数</label>
-                      <input id="boundary-target-pulls" value={completionPulls} placeholder="如 59" onChange={(event) => setCompletionPulls(event.target.value.replace(/\D/g, '').slice(0, 2))} className="glass-input h-8 w-20 px-2 text-xs tabular-nums text-tide" inputMode="numeric" />
-                      <button onClick={handleBoundaryCompletion} disabled={boundarySaving} className="tide-btn h-8 px-3 text-xs disabled:opacity-40">补足缺失记录</button>
+                      <input id="boundary-target-pulls" value={completionPulls} placeholder="如 59"
+                             onChange={(event) => setCompletionPulls(event.target.value.replace(/\D/g, '').slice(0, 2))}
+                             className="glass-input h-8 w-20 px-2 text-xs tabular-nums text-tide" inputMode="numeric" />
+                      <button onClick={handleBoundaryCompletion} disabled={boundarySaving}
+                              className="tide-btn h-8 px-3 text-xs disabled:opacity-40">补足缺失记录
+                      </button>
                     </div>
-                    <p className="mt-2 text-[10px] text-wave">现有可见 {boundaryConfirmation.visible_pulls} 抽，将新增目标抽数与可见抽数之差；原始五星记录不会修改。</p>
+                    <p
+                      className="mt-2 text-[10px] text-wave">现有可见 {boundaryConfirmation.visible_pulls} 抽，将新增目标抽数与可见抽数之差；原始五星记录不会修改。</p>
                   </div>
                 </>
               )}
               <div className="flex justify-end gap-2 pt-1">
-                <button onClick={() => setBoundaryConfirmation(null)} disabled={boundarySaving} className="px-4 py-2 text-sm text-wave hover:text-tide">取消</button>
-                <button onClick={handleBoundaryConfirmation} disabled={boundarySaving} className="tide-btn flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-40">
+                <button onClick={() => setBoundaryConfirmation(null)} disabled={boundarySaving}
+                        className="px-4 py-2 text-sm text-wave hover:text-tide">取消
+                </button>
+                <button onClick={handleBoundaryConfirmation} disabled={boundarySaving}
+                        className="tide-btn flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-40">
                   {boundarySaving && <LoaderCircle size={12} className="animate-spin" />}
                   {boundaryConfirmation.confirmed ? '确认撤销' : completionPulls.trim() !== '' ? '确认并补足' : '确认完整起点'}
                 </button>
@@ -1571,96 +1789,109 @@ export default function SettingsPage() {
           className="max-w-md border-white/[0.08] bg-[#242424]"
           labelledBy="update-dialog-title"
         >
-            {displayUpdate && <>
-              <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-md bg-[#6faaa0]/10 p-2 text-[#8fc8be]"><ResonanceIcon kind="refresh" size={19} /></div>
-                  <div>
-                    <h2 id="update-dialog-title" className="text-base font-medium text-tide">{isMockPreview ? '更新公告预览' : '发现新版本'}</h2>
-                    <p className="mt-1 text-xs text-wave">v{devMock.mockCurrentVersion || appVersion} → v{displayUpdate.version}</p>
-                  </div>
+          {displayUpdate && <>
+            <div className="flex items-start justify-between border-b border-white/[0.06] p-5">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-md bg-[#6faaa0]/10 p-2 text-[#8fc8be]"><ResonanceIcon kind="refresh"
+                                                                                                     size={19} /></div>
+                <div>
+                  <h2 id="update-dialog-title"
+                      className="text-base font-medium text-tide">{isMockPreview ? '更新公告预览' : '发现新版本'}</h2>
+                  <p className="mt-1 text-xs text-wave">v{devMock.mockCurrentVersion || appVersion} →
+                    v{displayUpdate.version}</p>
                 </div>
-                <ResonanceCloseButton onClick={closeUpdateModal} disabled={updating} />
               </div>
+              <ResonanceCloseButton onClick={closeUpdateModal} disabled={updating} />
+            </div>
 
-              <div className="p-5">
-                {displayUpdate.body && (
-                  <div className="update-notes mb-4 max-h-72 overflow-y-auto rounded-md border border-white/[0.06] bg-white/[0.02] text-xs leading-5 text-wave">
-                    {(() => {
-                      const history = extractUpdateHistory(displayUpdate);
-                      // 单版本时保持原样，多版本时分组折叠
-                      if (history.length <= 1) {
-                        return (
-                          <div className="p-3">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripUpdateNotesFooter(history[0].notes)}</ReactMarkdown>
-                          </div>
-                        );
-                      }
+            <div className="p-5">
+              {displayUpdate.body && (
+                <div
+                  className="update-notes mb-4 max-h-72 overflow-y-auto rounded-md border border-white/[0.06] bg-white/[0.02] text-xs leading-5 text-wave">
+                  {(() => {
+                    const history = extractUpdateHistory(displayUpdate);
+                    // 单版本时保持原样，多版本时分组折叠
+                    if (history.length <= 1) {
                       return (
-                        <div>
-                          {history.map((entry, idx) => {
-                            const expanded = expandedVersions[idx] ?? false;
-                            const isLatest = idx === 0;
-                            const hasFeat = hasNewFeatures(entry.notes);
-                            return (
-                              <div key={entry.version} className={`border-b border-white/[0.06] last:border-b-0 ${isLatest ? '' : ''}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const next = [...expandedVersions];
-                                    next[idx] = !next[idx];
-                                    setExpandedVersions(next);
-                                  }}
-                                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    {expanded ? <ChevronDown size={12} className="shrink-0 text-wave" /> : <ChevronRight size={12} className="shrink-0 text-wave" />}
-                                    <span className={`text-sm font-medium ${isLatest ? 'text-tide' : 'text-wave'}`}>
-                                      v{entry.version}
-                                    </span>
-                                    {isLatest && (
-                                      <span className="shrink-0 rounded-sm bg-[#6faaa0]/15 px-1.5 py-0.5 text-[10px] text-[#8fc8be]">最新</span>
-                                    )}
-                                    {!isLatest && hasFeat && (
-                                      <span className="shrink-0 rounded-sm bg-[#c9ab78]/15 px-1.5 py-0.5 text-[10px] text-[#d9c28f]">含新功能</span>
-                                    )}
-                                  </div>
-                                </button>
-                                {expanded && (
-                                  <div className="px-3 pb-3 pt-0">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripVersionHeader(stripUpdateNotesFooter(entry.notes))}</ReactMarkdown>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <div className="p-3">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}>{stripUpdateNotesFooter(history[0].notes)}</ReactMarkdown>
                         </div>
                       );
-                    })()}
-                  </div>
-                )}
+                    }
+                    return (
+                      <div>
+                        {history.map((entry, idx) => {
+                          const expanded = expandedVersions[idx] ?? false;
+                          const isLatest = idx === 0;
+                          const hasFeat = hasNewFeatures(entry.notes);
+                          return (
+                            <div key={entry.version}
+                                 className={`border-b border-white/[0.06] last:border-b-0 ${isLatest ? '' : ''}`}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = [...expandedVersions];
+                                  next[idx] = !next[idx];
+                                  setExpandedVersions(next);
+                                }}
+                                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {expanded ? <ChevronDown size={12} className="shrink-0 text-wave" /> :
+                                    <ChevronRight size={12} className="shrink-0 text-wave" />}
+                                  <span className={`text-sm font-medium ${isLatest ? 'text-tide' : 'text-wave'}`}>
+                                      v{entry.version}
+                                    </span>
+                                  {isLatest && (
+                                    <span
+                                      className="shrink-0 rounded-sm bg-[#6faaa0]/15 px-1.5 py-0.5 text-[10px] text-[#8fc8be]">最新</span>
+                                  )}
+                                  {!isLatest && hasFeat && (
+                                    <span
+                                      className="shrink-0 rounded-sm bg-[#c9ab78]/15 px-1.5 py-0.5 text-[10px] text-[#d9c28f]">含新功能</span>
+                                  )}
+                                </div>
+                              </button>
+                              {expanded && (
+                                <div className="px-3 pb-3 pt-0">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}>{stripVersionHeader(stripUpdateNotesFooter(entry.notes))}</ReactMarkdown>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
-                {isMockPreview && (
-                  <div className="mb-3 rounded-md border border-[#c9ab78]/20 bg-[#c9ab78]/[0.05] px-3 py-2 text-[11px] text-[#d9c28f]">
-                    🧪 这是开发预览模式，数据为 mock。正式更新以实际发布内容为准。
-                  </div>
-                )}
+              {isMockPreview && (
+                <div
+                  className="mb-3 rounded-md border border-[#c9ab78]/20 bg-[#c9ab78]/[0.05] px-3 py-2 text-[11px] text-[#d9c28f]">
+                  🧪 这是开发预览模式，数据为 mock。正式更新以实际发布内容为准。
+                </div>
+              )}
 
-                {updating && (
-                  <div className="mb-4">
-                    <div className="mb-1.5 flex items-center justify-between text-[11px] text-wave">
-                      <span>{updateProgress < 100 ? '下载中' : '安装中'}...</span>
-                      <span>{updateProgress}%</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                      <div className="h-full rounded-full bg-[#6faaa0] transition-all" style={{ width: `${updateProgress}%` }} />
-                    </div>
+              {updating && (
+                <div className="mb-4">
+                  <div className="mb-1.5 flex items-center justify-between text-[11px] text-wave">
+                    <span>{updateProgress < 100 ? '下载中' : '安装中'}...</span>
+                    <span>{updateProgress}%</span>
                   </div>
-                )}
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="h-full rounded-full bg-[#6faaa0] transition-all"
+                         style={{ width: `${updateProgress}%` }} />
+                  </div>
+                </div>
+              )}
 
-                <div className="flex justify-end gap-2 pt-1">
-                  <button onClick={closeUpdateModal} disabled={updating} className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">{isMockPreview ? '关闭' : '以后再说'}</button>
-                  <button
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={closeUpdateModal} disabled={updating}
+                        className="px-4 py-2 text-sm text-wave hover:text-tide disabled:opacity-40">{isMockPreview ? '关闭' : '以后再说'}</button>
+                <button
                     onClick={() => {
                       if (isMockPreview) {
                         addToast('info', '这是预览模式，不会真的安装更新');
@@ -1670,13 +1901,15 @@ export default function SettingsPage() {
                     }}
                     disabled={updating}
                     className="flex items-center gap-2 rounded-md bg-[#5a8a82] px-4 py-2 text-sm text-white hover:bg-[#6a9a92] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ResonanceActionIcon size="sm" tone="gold">{updating ? <LoaderCircle size={11} className="animate-spin" /> : <ResonanceIcon kind="download" size={12} />}</ResonanceActionIcon>
-                    {updating ? '更新中' : '立即更新'}
-                  </button>
-                </div>
+                >
+                  <ResonanceActionIcon size="sm" tone="gold">{updating ?
+                    <LoaderCircle size={11} className="animate-spin" /> :
+                    <ResonanceIcon kind="download" size={12} />}</ResonanceActionIcon>
+                  {updating ? '更新中' : '立即更新'}
+                </button>
               </div>
-            </>}
+            </div>
+          </>}
         </Modal>
       </div>
     </PageTransition>

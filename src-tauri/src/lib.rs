@@ -147,6 +147,7 @@ pub fn run() {
             commands::gacha::preview_gacha_json_import,
             commands::gacha::get_all_records,
             commands::gacha::export_gacha_json,
+            commands::gacha::backup_gacha_database,
             commands::gacha::get_pools,
             commands::gacha::get_record_summaries,
             commands::gacha::get_stats,

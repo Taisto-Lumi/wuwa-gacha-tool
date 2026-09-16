@@ -1673,6 +1673,23 @@ impl Database {
         Ok(Some(backup_path.to_string_lossy().into_owned()))
     }
 
+    pub fn create_manual_backup(&self) -> Result<String, String> {
+        let backup_dir = self
+            .backup_dir()
+            .ok_or_else(|| "数据库路径未初始化".to_string())?;
+        std::fs::create_dir_all(&backup_dir).map_err(|e| format!("创建备份目录失败: {e}"))?;
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| format!("生成备份时间戳失败: {e}"))?
+            .as_millis();
+        let backup_path = backup_dir.join(format!("gacha-data-manual-{timestamp}.db"));
+        let backup_path_text = backup_path.to_string_lossy().into_owned();
+        self.conn
+            .execute("VACUUM main INTO ?1", params![backup_path_text])
+            .map_err(|e| format!("创建备份失败: {e}"))?;
+        Ok(backup_path.to_string_lossy().into_owned())
+    }
+
     pub fn create_sync_snapshot(&self, target: &Path) -> Result<(), String> {
         if target.exists() {
             std::fs::remove_file(target).map_err(|e| e.to_string())?;

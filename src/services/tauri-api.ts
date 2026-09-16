@@ -123,6 +123,11 @@ export const gachaApi = {
     return invoke('export_gacha_json', { playerId, filePath, startDate, endDate });
   },
 
+  // 手动备份抽卡数据库
+  backupGachaDatabase: (): Promise<string> => {
+    return invoke('backup_gacha_database');
+  },
+
   // 获取所有玩家 ID
   getPools: (): Promise<string[]> => {
     return invoke('get_pools');
