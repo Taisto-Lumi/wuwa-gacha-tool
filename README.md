@@ -8,8 +8,11 @@
 
 > 所有示例截图均已对 UID 等私人信息进行脱敏处理。
 
+> 📖 **使用说明请见 [Wiki](https://github.com/juliy819/wuwa-gacha-tool/wiki)**：涵盖快速开始、六种数据导入方式、记录管理、分析解读、设置与备份、隐私安全、常见问题排查以及开发发布流程。
+
 ## 相关仓库
 
+- [Wiki 使用说明](https://github.com/juliy819/wuwa-gacha-tool/wiki)：完整的功能使用文档与常见问题
 - [OCR Runtime](https://github.com/juliy819/wuwa-gacha-tool-ocr-runtime)：独立 OCR 组件、模型与五星头像模板
 - [Resources](https://github.com/juliy819/wuwa-gacha-tool-resources)：角色、武器目录和图片资源包
 - [Android 客户端](https://github.com/juliy819/wuwa-gacha-tool-android)：面向 Android 的抽卡记录展示与导入客户端
