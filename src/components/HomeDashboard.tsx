@@ -257,7 +257,6 @@ export default function HomeDashboard({ stats, records, confirmedBoundaryPools =
               <h2 className="panel-heading flex items-center gap-2 text-sm font-medium text-tide">
                 <ResonanceIcon kind="activity" size={15} /> 当前垫抽
               </h2>
-              <p className="mt-1 text-[11px] text-wave-dim">各类卡池独立累计，不跨池合并</p>
             </div>
             <span className="tech-chip px-2 py-1 text-[10px] text-wave">五星保底 80</span>
           </div>
@@ -289,7 +288,6 @@ export default function HomeDashboard({ stats, records, confirmedBoundaryPools =
             <h2 className="panel-heading flex items-center gap-2 text-sm font-medium text-tide">
               <ResonanceIcon kind="trophy" size={15} /> 最近五星
             </h2>
-            <p className="mt-1 text-[11px] text-wave-dim">未确认历史起点的首个五星以 ≥ 标记抽数下界</p>
           </div>
           <span className="text-[11px] text-wave">
             {recordRange ? `数据截至 ${recordRange.latest}` : `最近 ${recentFiveStars.length} 条`}

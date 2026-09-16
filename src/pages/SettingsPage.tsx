@@ -19,6 +19,7 @@ import ResonanceActionIcon from '../components/ResonanceActionIcon';
 import ResonanceIcon from '../components/ResonanceModeIcon';
 import { ShareMaskedInput } from '../components/ShareMaskedField';
 import ResonanceEmptyState from '../components/ResonanceEmptyState';
+import Tooltip from '../components/Tooltip';
 import ThemedDateInput from '../components/ThemedDateInput';
 import { useUiFeedback } from '../hooks/useUiFeedback';
 import { playUiFeedback } from '../lib/uiFeedback';
@@ -903,14 +904,15 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-tide">
                     <ResonanceActionIcon tone="gold"><ResonanceIcon kind="traces" size={15} /></ResonanceActionIcon>Client.log
+                    <Tooltip content={<span className="max-w-[260px] whitespace-normal">可添加多个版本游戏根目录下的 Client\Saved\Logs\Client.log；扫描时自动使用最近修改的一个</span>} contentClassName="whitespace-normal max-w-[280px]">
+                      <span className="inline-flex h-[16px] w-[16px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-[#c9ab78]/40 text-[#c9ab78]/70 transition-colors hover:border-[#c9ab78]/70 hover:text-[#c9ab78]"><ResonanceIcon kind="info" size={10} /></span>
+                    </Tooltip>
                   </div>
                   <div className="settings-state-readout" data-state={directoryState.tone}>
                     <span className="settings-state-pulse" />
                     <span>{directoryState.label}</span>
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-wave">可添加多个版本游戏根目录下的 <span
-                  className="font-mono text-[11px]">Client\Saved\Logs\Client.log</span>；扫描时自动使用最近修改的一个</p>
 
                 <ul className="mt-4 space-y-2">
                   {logPaths.length === 0 ? (
@@ -953,8 +955,8 @@ export default function SettingsPage() {
                   ))}
                 </ul>
 
-                <label className="mt-4 block">
-                  <span className="mb-2 block text-xs text-wave">添加 Client.log 路径</span>
+                <label className="mt-3 block">
+                  <span className="mb-1.5 block text-xs text-wave">添加 Client.log 路径</span>
                   <div className="flex gap-2">
                     <ShareMaskedInput
                       type="text"
@@ -972,12 +974,8 @@ export default function SettingsPage() {
                   </div>
                 </label>
 
-                <div className="mt-2 min-h-5">
-                  {!gameDirInput.trim() ? (
-                    <div className="flex items-center gap-2 text-[11px] text-wave"><ResonanceIcon kind="info"
-                                                                                                  size={13} />选择日志文件后即可添加到列表
-                    </div>
-                  ) : validating ? (
+                <div className="mt-1.5 min-h-5">
+                  {!gameDirInput.trim() ? null : validating ? (
                     <div className="flex items-center gap-2 text-[11px] text-wave"><LoaderCircle size={12}
                                                                                                  className="animate-spin" />正在检查
                       Client.log</div>
@@ -992,7 +990,7 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-2 flex items-center gap-3">
                   <button
                     onClick={handleAddPath}
                     disabled={saving || validating || !canAddPath}
@@ -1040,7 +1038,11 @@ export default function SettingsPage() {
                       className="text-[#d99a9a]">{resourcePack.installed ? '资源包更新失败，本地版本仍可用' : '资源包下载失败，可手动重试'}</span></>
                   ) : resourcePack?.installed ? (
                     <><ResonanceIcon kind="success" size={13} className="text-[#8fc8be]" /><span
-                      className="text-[#8fc8be]">已安装 · v{resourcePack.version}</span></>
+                      className="text-[#8fc8be]">已安装 · v{resourcePack.version}</span>
+                      <Tooltip content={`包含 ${resourcePack.resource_count.toLocaleString()} 项素材、${resourcePack.icon_count.toLocaleString()} 张图标和 ${resourcePack.portrait_count.toLocaleString()} 张立绘`} contentClassName="whitespace-normal max-w-[260px]">
+                        <span className="inline-flex h-[15px] w-[15px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-[#8fc8be]/40 text-[#8fc8be]/70 transition-colors hover:border-[#8fc8be]/70 hover:text-[#8fc8be]"><ResonanceIcon kind="info" size={9} /></span>
+                      </Tooltip>
+                    </>
                   ) : (
                     <><ResonanceIcon kind="info" size={13} className="text-wave" /><span
                       className="text-wave">尚未安装，应用启动后会自动下载</span></>
@@ -1058,10 +1060,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
-                {resourcePack?.installed && !resourcePack.last_error && (
-                  <p
-                    className="mt-2 text-[11px] leading-5 text-wave">包含 {resourcePack.resource_count.toLocaleString()} 项素材、{resourcePack.icon_count.toLocaleString()} 张图标和 {resourcePack.portrait_count.toLocaleString()} 张立绘。</p>
-                )}
+
                 {resourcePack?.last_error &&
                     <p className="mt-2 break-words text-[11px] leading-5 text-[#d99a9a]">{displaySensitiveText(resourcePack.last_error)}</p>}
               </motion.section>
@@ -1098,15 +1097,15 @@ export default function SettingsPage() {
               </section>
 
               <section className="border-t border-white/[0.06] px-1 pt-4 text-xs text-wave">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-tide-dim">Wuwa Gacha Tool v{appVersion}</span>
-                    {availableUpdate && !updateInfo && (
-                      <span className="rounded-sm bg-[#6faaa0]/10 px-1.5 py-0.5 text-[10px] text-[#8fc8be]">
-                        有新版本 v{availableUpdate.version}
-                      </span>
-                    )}
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-tide-dim">Wuwa Gacha Tool v{appVersion}</span>
+                  {availableUpdate && !updateInfo && (
+                    <span className="rounded-sm bg-[#6faaa0]/10 px-1.5 py-0.5 text-[10px] text-[#8fc8be]">
+                      有新版本 v{availableUpdate.version}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
                   <button
                     onClick={handleCheckUpdate}
                     disabled={checkingUpdate}
@@ -1114,14 +1113,11 @@ export default function SettingsPage() {
                   >
                     <ResonanceActionIcon size="sm">
                       {checkingUpdate ? <LoaderCircle size={12} className="animate-spin" /> :
-                        <ResonanceIcon kind="refresh" size={15} />}
+                        <ResonanceIcon kind="refresh" size={14} />}
                     </ResonanceActionIcon>
                     {checkingUpdate ? '检查中' : '检查更新'}
                   </button>
-                </div>
-                <p className="mt-2 leading-5">数据默认保存在本机；启用 OneDrive 后，会同步到你自己根目录下的 `Wuwa Gacha
-                  Tool` 文件夹。</p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <span className="h-3 w-px bg-white/[0.08]" />
                   <button
                     onClick={handleOpenLogDirectory}
                     className="flex items-center gap-1.5 text-wave transition-colors hover:text-tide"
@@ -1161,17 +1157,18 @@ export default function SettingsPage() {
             >
               <div className="mb-5 border-b border-white/[0.07] pb-5">
                 <div className="flex items-center justify-between gap-4">
-                  <div>
+                  <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 text-sm font-medium text-tide"><ResonanceActionIcon
                       tone="gold"><ResonanceIcon kind="sync" size={15} /></ResonanceActionIcon>数据与同步
+                      <Tooltip content={<span className="max-w-[260px] whitespace-normal">按 UID 管理抽卡记录，并通过 OneDrive 同步共享的 gacha-data.db 数据库快照。两端同时修改时会停止同步，避免覆盖；数据库删除、清空和模拟记录修改也会随快照同步。</span>} contentClassName="whitespace-normal max-w-[280px]">
+                        <span className="inline-flex h-[16px] w-[16px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-[#c9ab78]/40 text-[#c9ab78]/70 transition-colors hover:border-[#c9ab78]/70 hover:text-[#c9ab78]"><ResonanceIcon kind="info" size={10} /></span>
+                      </Tooltip>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-wave">按 UID 管理抽卡记录，并通过 OneDrive 同步共享的
-                      gacha-data.db
-                      数据库快照。两端同时修改时会停止同步，避免覆盖；数据库删除、清空和模拟记录修改也会随快照同步。</p>
+                    <span className="h-3.5 w-px bg-white/[0.08]" />
                     <button
                       type="button"
                       onClick={() => void openUrl('https://github.com/juliy819/wuwa-gacha-tool-android/releases')}
-                      className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#c9ab78] transition-colors hover:text-[#e0c58f]"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#c9ab78] transition-colors hover:text-[#e0c58f]"
                     >
                       <ResonanceIcon kind="external" size={13} />下载 Android 客户端
                     </button>

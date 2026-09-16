@@ -8,6 +8,7 @@ import PageTransition from '../components/PageTransition';
 import PageSignalField from '../components/PageSignalField';
 import ResonanceEmptyState from '../components/ResonanceEmptyState';
 import ResonanceIcon from '../components/ResonanceModeIcon';
+import Tooltip from '../components/Tooltip';
 import ThemedDateInput from '../components/ThemedDateInput';
 import { recordsPath } from '../lib/recordNavigation';
 import { gachaApi } from '../services/tauri-api';
@@ -168,12 +169,6 @@ function buildGachaForecast(pool: PoolInsight, rateAtPity = fiveStarRateAtPity):
   };
 }
 
-const RELIABILITY = {
-  insufficient: { label: '样本较少', tone: '#a7aaa8' },
-  low: { label: '初步趋势', tone: '#d8bd84' },
-  medium: { label: '趋势稳定', tone: '#b9bdb9' },
-  high: { label: '样本充分', tone: '#d0c18f' },
-} as const;
 
 function formatPull(value: number | null) {
   return value === null ? '-' : `${value.toFixed(Number.isInteger(value) ? 0 : 1)} 抽`;
@@ -541,7 +536,6 @@ export default function AnalyticsPage() {
       ?? null,
     [activePoolType, visibleInsights],
   );
-  const reliability = activePool ? RELIABILITY[activePool.reliability] : RELIABILITY.insufficient;
   const activeHardPity = activePool?.pool_type === '5' ? 50 : 80;
   const distributionOption = useMemo(
     () => activePool ? buildHistogramOption(activePool.distribution, 80, FIVE_STAR_EXPECTED_PULLS, '理论期望 54.1', '出金') : null,
@@ -721,11 +715,6 @@ export default function AnalyticsPage() {
                         <small>/ {activeHardPity} 抽</small>
                       </div> : <div className="analysis-current-pity"><span>分析范围</span><strong className="!text-base">自定义</strong><small>{startDate} 至 {endDate}</small></div>}
                     </div>
-                    <div className="analysis-method-note">
-                      <ResonanceIcon kind="traces" size={15} />
-                      <span>每次五星后重新从第 1 抽计数。未确认历史起点时首个可见五星不参与平均；当前垫抽尚未出金，始终不参与平均。</span>
-                      <em style={{ color: reliability.tone }}>{reliability.label}</em>
-                    </div>
                     <div className="analysis-metric-grid">
                         <Metric label="五星获取数量" value={`${activePool.five_star_count} 个`} />
                         <Metric label="平均多少抽出金" value={formatPull(activePool.average_pity)} tone="#d8bd84" />
@@ -757,8 +746,11 @@ export default function AnalyticsPage() {
                       <div className="analysis-forecast-heading">
                         <div>
                           <span className="analysis-section-index">CONDITIONAL FORECAST / PITY {activePool.current_pity}</span>
-                          <h2>从当前垫抽开始，未来有多大概率出金</h2>
-                          <p>已将前 {activePool.current_pity} 抽未出五星作为已知条件，从下一抽重新计算；规则模型采用已确认的分段软保底，个人校准仅反映你的历史表现。</p>
+                          <h2 className="flex items-center gap-2">从当前垫抽开始，未来有多大概率出金
+                            <Tooltip content={<span className="max-w-[280px] whitespace-normal">已将前 {activePool.current_pity} 抽未出五星作为已知条件，从下一抽重新计算；规则模型采用已确认的分段软保底，个人校准仅反映你的历史表现。</span>} contentClassName="whitespace-normal max-w-[300px]">
+                              <span className="inline-flex h-[16px] w-[16px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-[#c9ab78]/40 text-[#c9ab78]/70 transition-colors hover:border-[#c9ab78]/70 hover:text-[#c9ab78]"><ResonanceIcon kind="info" size={10} /></span>
+                            </Tooltip>
+                          </h2>
                         </div>
                         <div className="analysis-model-tools">
                           <div className="analysis-model-control" aria-label="概率预测模型">
@@ -820,8 +812,11 @@ export default function AnalyticsPage() {
                         <div className="flex flex-wrap items-end justify-between gap-4">
                           <div>
                             <span className="analysis-section-index">PULL PLANNER</span>
-                            <h3 className="mt-1 text-sm font-medium text-tide">计划追加多少抽</h3>
-                            <p className="mt-1 text-[10px] text-wave">沿用上方同一条条件概率曲线，不改变当前记录或保底状态。</p>
+                            <h3 className="mt-1 flex items-center gap-2 text-sm font-medium text-tide">计划追加多少抽
+                              <Tooltip content="沿用上方同一条条件概率曲线，不改变当前记录或保底状态" contentClassName="whitespace-normal max-w-[240px]">
+                                <span className="inline-flex h-[15px] w-[15px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-[#c9ab78]/40 text-[#c9ab78]/70 transition-colors hover:border-[#c9ab78]/70 hover:text-[#c9ab78]"><ResonanceIcon kind="info" size={9} /></span>
+                              </Tooltip>
+                            </h3>
                           </div>
                           <label className="flex items-center gap-2 text-xs text-wave">
                             追加
@@ -864,17 +859,23 @@ export default function AnalyticsPage() {
                     <div className="analysis-chart-grid">
                       <section className="analysis-chart-panel">
                         <div className="analysis-chart-heading">
-                          <div><span>HISTOGRAM / 1–80</span><h3>每次五星用了多少抽</h3></div>
-                          <p>柱越高，说明该抽数范围内出金越常见；点击柱子可查看对应五星</p>
+                          <div><span>HISTOGRAM / 1–80</span><h3 className="flex items-center gap-1.5">每次五星用了多少抽
+                            <Tooltip content="柱越高，说明该抽数范围内出金越常见；点击柱子可查看对应五星" contentClassName="whitespace-normal max-w-[240px]">
+                              <span className="inline-flex h-[15px] w-[15px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-wave/30 text-wave/60 transition-colors hover:border-tide/50 hover:text-tide"><ResonanceIcon kind="info" size={9} /></span>
+                            </Tooltip>
+                          </h3></div>
                         </div>
                         <AnalyticsChart option={distributionOption} height={292} prewarmDelay={120} onEvents={histogramEvents} />
                       </section>
                       <section className="analysis-chart-panel">
                         <div className="analysis-chart-heading">
-                          <div><span>CONDITIONAL RATE / 1–80</span><h3>第 N 抽实际有多容易出金</h3></div>
-                          <p>{activePool.pool_type === '5'
-                            ? '新手池只展示历史出金率；逐抽规则未确认，不套用普通池模型。'
-                            : '规则模型作为基线，历史样本按有效样本量收缩到个人校准曲线；历史线仅供观察，不改变保底规则。'}</p>
+                          <div><span>CONDITIONAL RATE / 1–80</span><h3 className="flex items-center gap-1.5">第 N 抽实际有多容易出金
+                            <Tooltip content={activePool.pool_type === '5'
+                              ? '新手池只展示历史出金率；逐抽规则未确认，不套用普通池模型'
+                              : '规则模型作为基线，历史样本按有效样本量收缩到个人校准曲线；历史线仅供观察，不改变保底规则'} contentClassName="whitespace-normal max-w-[260px]">
+                              <span className="inline-flex h-[15px] w-[15px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-wave/30 text-wave/60 transition-colors hover:border-tide/50 hover:text-tide"><ResonanceIcon kind="info" size={9} /></span>
+                            </Tooltip>
+                          </h3></div>
                         </div>
                         <AnalyticsChart option={probabilityOption} height={292} prewarmDelay={240} />
                       </section>
@@ -888,8 +889,11 @@ export default function AnalyticsPage() {
                       <div className="analysis-featured-heading">
                         <div>
                           <span className="analysis-section-index">FEATURED RESONANCE / 1–160</span>
-                          <h2>抽到一个 UP 角色实际用了多少抽</h2>
-                          <p>从上一个 UP 五星之后开始计数，到下一个 UP 五星为止；中间如果歪了，会把歪五星前后的抽数合并。不歪率 {activePool.featured_win_rate === null ? '-' : `${activePool.featured_win_rate.toFixed(1)}%`}（{activePool.featured_win_count}/{activePool.featured_attempt_count}，大保底 UP 不计入）。</p>
+                          <h2 className="flex items-center gap-2">抽到一个 UP 角色实际用了多少抽
+                            <Tooltip content={<span className="max-w-[300px] whitespace-normal">从上一个 UP 五星之后开始计数，到下一个 UP 五星为止；中间如果歪了，会把歪五星前后的抽数合并。不歪率 {activePool.featured_win_rate === null ? '-' : `${activePool.featured_win_rate.toFixed(1)}%`}（{activePool.featured_win_count}/{activePool.featured_attempt_count}，大保底 UP 不计入）。</span>} contentClassName="whitespace-normal max-w-[320px]">
+                              <span className="inline-flex h-[16px] w-[16px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-[#c9ab78]/40 text-[#c9ab78]/70 transition-colors hover:border-[#c9ab78]/70 hover:text-[#c9ab78]"><ResonanceIcon kind="info" size={10} /></span>
+                            </Tooltip>
+                          </h2>
                         </div>
                         <div className="analysis-featured-expect"><span>理论期望</span><strong>81.15</strong><small>抽</small></div>
                       </div>
@@ -903,8 +907,11 @@ export default function AnalyticsPage() {
                       </div>
                       <div className="analysis-featured-chart">
                         <div className="analysis-chart-heading">
-                          <div><span>HISTOGRAM / 1–160</span><h3>UP 角色获取成本分布</h3></div>
-                          <p>金色虚线：长期理论期望 81.15 抽；点击柱子查看每次 UP、前置歪与分段抽数</p>
+                          <div><span>HISTOGRAM / 1–160</span><h3 className="flex items-center gap-1.5">UP 角色获取成本分布
+                            <Tooltip content="金色虚线：长期理论期望 81.15 抽；点击柱子查看每次 UP、前置歪与分段抽数" contentClassName="whitespace-normal max-w-[260px]">
+                              <span className="inline-flex h-[15px] w-[15px] shrink-0 cursor-help items-center justify-center rounded-full border border-dashed border-wave/30 text-wave/60 transition-colors hover:border-tide/50 hover:text-tide"><ResonanceIcon kind="info" size={9} /></span>
+                            </Tooltip>
+                          </h3></div>
                         </div>
                         <AnalyticsChart option={featuredOption} height={320} prewarmDelay={360} onEvents={featuredHistogramEvents} />
                       </div>
